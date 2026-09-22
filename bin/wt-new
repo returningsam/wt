@@ -1,0 +1,97 @@
+#!/bin/zsh
+# Usage: wt-new [--base <ref>] <branch>
+#        wt-new --migrate
+#
+# Layout: <container>/main (main checkout) + <container>/worktrees/wt-<branch>.
+# The worktree works on wt/<branch>; <branch> in main/ tracks wt/<branch> locally,
+# so `git pull` in main/ picks up the worktree's commits.
+# Prints the worktree path as the last line of stdout; everything else goes to stderr.
+
+set -euo pipefail
+
+die() { print -u2 -- "wt-new: $1"; exit ${2:-1}; }
+
+base= migrate= branch=
+while (( $# )); do
+  case $1 in
+    --base) base=$2; shift 2 ;;
+    --migrate) migrate=1; shift ;;
+    -*) die "unknown option $1" ;;
+    *) branch=${1#wt/}; shift ;;
+  esac
+done
+
+common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || die "not in a git repo"
+[[ ${common:t} == .git ]] || die "bare repos aren't supported"
+root=${common:h}
+
+if [[ ${root:t} == main ]]; then
+  [[ -n $migrate ]] && die "already migrated: $root"
+  container=${root:h}
+else
+  if [[ -z $migrate ]]; then
+    print -u2 -- "wt-new: $root isn't in the main/ + worktrees/ layout yet.
+Migrating moves it to $root/main, which breaks anything open on the old path.
+  1. Close VS Code windows and stop dev servers for this repo; exit Claude sessions in it.
+  2. Run: cd $root && wt-new --migrate
+  3. Reopen from $root/main"
+    exit 3
+  fi
+
+  linked=(${(f)"$(git -C $root worktree list --porcelain | sed -n 's/^worktree //p' | tail -n +2)"})
+  linked=(${linked:#})
+  tmp=$root.wt-migrate-$$
+  [[ -e $tmp ]] && die "$tmp already exists"
+  mv $root $tmp
+  mkdir $root
+  mv $tmp $root/main
+  mkdir $root/worktrees
+
+  # Linked worktrees inside the repo moved with it; their gitdir links need repairing either way.
+  moved=()
+  for p in $linked; do
+    [[ $p == $root/* ]] && moved+=($root/main/${p#$root/}) || moved+=($p)
+  done
+  git -C $root/main worktree repair $moved >&2
+
+  slug() { print -r -- ${1//[^A-Za-z0-9]/-} }
+  projects=$HOME/.claude/projects
+  if [[ -d $projects/$(slug $root) && ! -e $projects/$(slug $root/main) ]]; then
+    mv $projects/$(slug $root) $projects/$(slug $root/main)
+  fi
+
+  print -u2 -- "wt-new: migrated to $root/main"
+  exit 0
+fi
+
+[[ -n $branch ]] || die "usage: wt-new [--base <ref>] <branch>"
+git check-ref-format --branch "wt/$branch" >/dev/null || die "invalid branch name: $branch"
+
+g() { git -C $root "$@" }
+wtb=wt/$branch
+dir=$container/worktrees/${wtb//\//-}
+[[ -e $dir ]] && die "$dir already exists"
+
+if g show-ref -q --verify refs/heads/$wtb; then
+  g worktree add $dir $wtb >&2
+else
+  if [[ -z $base ]]; then
+    g fetch -q origin >&2 || true
+    if g show-ref -q --verify refs/heads/$branch; then
+      base=$branch
+    elif g show-ref -q --verify refs/remotes/origin/$branch; then
+      base=origin/$branch
+    else
+      base=$(g symbolic-ref -q --short refs/remotes/origin/HEAD || print main)
+    fi
+  fi
+  g worktree add --no-track -b $wtb $dir $base >&2
+fi
+
+if g show-ref -q --verify refs/heads/$branch; then
+  g branch -q --set-upstream-to=$wtb $branch
+else
+  g branch -q --track $branch $wtb
+fi
+
+print -r -- $dir

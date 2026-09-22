@@ -1,0 +1,14 @@
+{
+  "name": "wt",
+  "owner": {
+    "name": "Samuel Kilgus"
+  },
+  "plugins": [
+    {
+      "name": "wt",
+      "source": "./",
+      "description": "Git worktrees in a main/ + worktrees/ layout, on wt/ branches the main checkout can pull from"
+    }
+  ],
+  "description": "Worktree layout and lifecycle tooling for Claude Code"
+}

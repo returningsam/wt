@@ -1,0 +1,69 @@
+#!/bin/zsh
+# Usage: wt-rm [--force] <branch | worktree path>
+#
+# Removes a worktree made by wt-new and its wt/<branch> branch. <branch> in main/
+# goes back to tracking origin/<branch>, or is deleted if it holds no unmerged work.
+# Refuses when the worktree is dirty or wt/<branch> has commits nowhere else, unless --force.
+
+set -euo pipefail
+
+die() { print -u2 -- "wt-rm: $1"; exit 1; }
+
+force= target=
+while (( $# )); do
+  case $1 in
+    -f|--force) force=1; shift ;;
+    -*) die "unknown option $1" ;;
+    *) target=$1; shift ;;
+  esac
+done
+[[ -n $target ]] || die "usage: wt-rm [--force] <branch | worktree path>"
+
+if [[ -d $target ]]; then
+  common=$(git -C $target rev-parse --path-format=absolute --git-common-dir) || die "not a git worktree: $target"
+  root=${common:h}
+  dir=${target:A}
+  wtb=$(git -C $dir symbolic-ref -q --short HEAD) || die "worktree HEAD is detached: $dir"
+else
+  common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || die "not in a git repo"
+  root=${common:h}
+  wtb=wt/${target#wt/}
+  dir=$(git -C $root worktree list --porcelain | awk -v b="branch refs/heads/$wtb" '/^worktree /{p=substr($0,10)} $0==b{print p}')
+  [[ -n $dir ]] || die "no worktree has $wtb checked out"
+fi
+
+g() { git -C $root "$@" }
+[[ $wtb == wt/* ]] || die "$dir is on $wtb, not a wt/ branch"
+branch=${wtb#wt/}
+default=$(g symbolic-ref -q --short refs/remotes/origin/HEAD || print main)
+
+reachable() {
+  local ref
+  for ref in $branch origin/$branch $default; do
+    g rev-parse -q --verify "$ref^{commit}" >/dev/null || continue
+    g merge-base --is-ancestor $1 $ref && return 0
+  done
+  return 1
+}
+
+if [[ -z $force ]]; then
+  [[ -z $(git -C $dir status --porcelain) ]] || die "uncommitted changes in $dir (use --force)"
+  reachable $wtb || die "$wtb has commits not on $branch, origin/$branch, or $default (use --force)"
+fi
+
+g worktree remove ${force:+--force} $dir
+g branch -q -D $wtb
+
+if g show-ref -q --verify refs/heads/$branch; then
+  if g rev-parse -q --verify origin/$branch >/dev/null; then
+    g branch -q --set-upstream-to=origin/$branch $branch
+  else
+    g branch -q --unset-upstream $branch 2>/dev/null || true
+    checked_out=$(g worktree list --porcelain | grep -Fx "branch refs/heads/$branch" || true)
+    if [[ -z $checked_out ]] && g merge-base --is-ancestor $branch $default; then
+      g branch -q -D $branch
+    fi
+  fi
+fi
+
+print -u2 -- "wt-rm: removed $dir and $wtb"
