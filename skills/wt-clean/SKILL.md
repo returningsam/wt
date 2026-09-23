@@ -1,16 +1,18 @@
 ---
 name: wt-clean
 description: >
-  Find stale git worktrees in the current repo, sort them into safe-to-remove, needs a
-  decision, and keep, then remove the ones the user picks. Use when the user invokes
+  Find stale git worktrees in the current repo, remove the ones whose work is already
+  merged, and sort the rest into safe-to-remove, needs a decision, and keep for the user to
+  pick from. Use when the user invokes
   /wt-clean, or asks to clean up, prune, or list stale worktrees.
 ---
 
-Clean up worktrees in the current repo. Gather facts, classify, ask, then remove.
-Nothing is removed before the user picks it.
+Clean up worktrees in the current repo. Gather facts, classify, remove merged work, ask
+about the rest, then remove what the user picks.
 
 **Authorization:** invoking this skill authorizes `git fetch --prune`, `git worktree prune`,
-and removing the worktrees the user selects in §3. Nothing else: no pushes, no edits inside a
+removing merged worktrees (§2) without asking, and removing the worktrees the user selects
+in §3. Nothing else: no pushes, no edits inside a
 worktree, no changes to `main/`'s checked-out branch.
 
 ## 1. Gather
@@ -44,12 +46,17 @@ worktree, collect:
 
 ## 2. Classify
 
-**Safe to remove:**
+**Merged (remove without asking):** the work already landed, so the worktree goes.
 
-- Clean, and no unique commits (merged, pushed, or never used).
 - Clean, PR `MERGED`, and every unique commit is in the PR's `headRefOid`
-  (`git merge-base --is-ancestor wt/<branch> <headRefOid>`). This is the squash-merge case
-  where the remote branch is gone, so `wt-rm` needs `--force`.
+  (`git merge-base --is-ancestor wt/<branch> <headRefOid>`). When the remote branch is gone
+  after a squash merge, `wt-rm` needs `--force`.
+- Clean, and `wt/<branch>` is an ancestor of `$default` (a regular merge).
+
+Only ask first if `lsof` (§3) finds a process using the directory.
+
+**Safe to remove:** clean, no unique commits, but no merge found (pushed without a merged
+PR, or never used).
 
 **Needs a decision:**
 
@@ -62,13 +69,16 @@ sees the whole picture, but don't offer them for removal unless asked.
 
 ## 3. Ask
 
-Print one compact table per bucket: worktree dir name, branch, PR link, last activity, and
-the reason for the bucket. Then use `AskUserQuestion` with `multiSelect: true`: one question
-for safe-to-remove (all listed) and one for needs-a-decision. With more than 4 in a bucket,
-offer "all of them", "none", and "let me list them" instead of one option per worktree.
+Before removing any worktree, merged ones included, warn if a dev server or editor might be
+using it. Check with `lsof -t +d <dir> 2>/dev/null | head` (non-recursive, fast) and name any
+processes found.
 
-Before removing a worktree, warn if a dev server or editor might be using it. Check with
-`lsof -t +d <dir> 2>/dev/null | head` (non-recursive, fast) and name any processes found.
+Remove the merged bucket first (§4). Then print one compact table per bucket, merged
+included so the user sees what went. Columns are worktree dir name, branch, PR link, last
+activity, and the reason for the bucket. Then use `AskUserQuestion` with
+`multiSelect: true`: one question for safe-to-remove (all listed) and one for
+needs-a-decision. With more than 4 in a bucket, offer "all of them", "none", and "let me
+list them" instead of one option per worktree.
 
 ## 4. Remove
 
@@ -76,10 +86,10 @@ For each selected `wt/` worktree:
 
 ```bash
 wt-rm <branch>            # clean, no unique commits
-wt-rm --force <branch>    # verified squash-merge, or the user chose to drop the work
+wt-rm --force <branch>    # verified merge wt-rm refuses, or the user chose to drop the work
 ```
 
-Use `--force` only for the verified squash-merge case, or for a needs-a-decision worktree
+Use `--force` only for a verified merge, or for a needs-a-decision worktree
 the user selected knowing what it drops. If `wt-rm` refuses anything else, report its
 message and move on; don't retry with `--force`.
 
