@@ -1,13 +1,13 @@
 ---
 name: worktree-pr
 description: >
-  Fix a bug in an isolated git worktree, get three independent subagent reviews before
+  Fix a bug in an isolated git worktree, get independent subagent reviews before
   anything is pushed, fold them in, then open an assigned PR. Takes a bug description or a
   GitHub issue link. Use when the user invokes /worktree-pr, or asks to fix a bug in a
   worktree and PR it.
 ---
 
-Fix a bug in a worktree, harden it against three independent reviews, then open the PR.
+Fix a bug in a worktree, harden it against independent reviews, then open the PR.
 Nothing leaves the machine until the findings are triaged and applied.
 
 **Authorization:** invoking this skill authorizes one local commit sequence on the worktree
@@ -81,7 +81,7 @@ Invoke the **herd-review** skill (`Skill(skill: "herd-review")`) on the worktree
 - an explicit instruction that this is a `/worktree-pr` run: **apply confirmed blocking and
   worth-fixing findings without asking**, since the run continues straight to the PR.
 
-It reads the change, writes three lenses for it, spawns three read-only reviewers, triages the
+It reads the change, sizes the review to its risk, spawns read-only reviewers, triages the
 merged findings against the code, and applies the confirmed ones. Keep its list of applied and
 rejected findings for §6.
 
