@@ -96,6 +96,9 @@ git push origin HEAD:<branch>   # wt/<branch> → origin/<branch>; always name t
 gh pr create --head <branch> --base <base> --assignee @me --title "…" --body "…"
 ```
 
+`gh pr create` prints the PR URL as its last line. Keep it for §6; if it got lost, recover it
+with `gh pr view <branch> --json url -q .url`.
+
 `--assignee @me` is required. Description rules (standing user preferences):
 
 - Terse bullets under `###` headings grouped by surface. Each: **bolded** statement of what
@@ -114,7 +117,15 @@ caveat: if there's no such status, note it in a line and move on.
 
 ## 6. Report
 
-- The PR as a markdown link with its **full URL** — never a bare number.
+The report's first line is always the PR link, with the full URL as both text and target:
+
+```
+PR: [<full URL>](<full URL>)
+```
+
+Never a bare `#123`, and never leave the link out, even when the run ends with a warning.
+Then:
+
 - What the fix does (a sentence or two).
 - What the reviews changed: findings applied, findings rejected + why.
 - Anything adjacent left alone deliberately.
