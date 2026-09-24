@@ -1,0 +1,144 @@
+#!/bin/zsh
+# Claude Code statusLine: the session's issues, worktree state, and PR on one line.
+#
+#   #545 ~~> 562✓  +3 ↑2
+#
+# The arrow is a JetBrains Mono ligature whose stroke is how far the work has travelled:
+#   -|   not in a worktree        ...  nothing done yet
+#   ~~>  uncommitted edits        -->  commits not pushed
+#   ==>  pushed, main/ not pulled ===  pushed and pulled
+# It turns yellow while files are changing. PR state is its color, checks trail it.
+#
+# Usage: statusLine command, session JSON on stdin.
+#        wt-status --refresh <dir> <branch> <cache> [issue urls...]  (internal, gh cache)
+
+zmodload zsh/stat zsh/datetime
+setopt extended_glob
+
+ttl=60
+active_window=20
+cache_dir=${XDG_CACHE_HOME:-$HOME/.cache}/wt-status
+
+if [[ $1 == --refresh ]]; then
+  dir=$2 branch=$3 out=$4; shift 4
+  cd $dir || exit 1
+  pr=$(gh pr list --head $branch --state all --limit 1 \
+    --json number,url,state,isDraft,statusCheckRollup,closingIssuesReferences \
+    --jq '.[0] // null') || { print '{"pr":null,"issues":[]}' >$out; exit 1 }
+  urls=($@ ${(f)"$(jq -r '.closingIssuesReferences[]?.url' <<<${pr:-null})"})
+  issues=$(for u in ${(u)urls:#}; do
+    gh issue view $u --json number,url,state,stateReason 2>/dev/null
+  done | jq -s .)
+  jq -n --argjson pr ${pr:-null} --argjson issues ${issues:-[]} '{
+    pr: ($pr | if . then {number, url, state: (if .isDraft and .state == "OPEN" then "DRAFT" else .state end),
+      checks: ([.statusCheckRollup[]? | .conclusion // .state // ""] as $c
+        | if ($c | length) == 0 then ""
+          elif any($c[]; test("FAILURE|ERROR|CANCELLED|TIMED_OUT|ACTION_REQUIRED|STARTUP_FAILURE")) then "fail"
+          elif any($c[]; . == "" or test("PENDING|EXPECTED|QUEUED|IN_PROGRESS|WAITING|REQUESTED")) then "pending"
+          else "pass" end)} else null end),
+    issues: [$issues[] | {number, url, state, reason: .stateReason}]
+  }' >$out.tmp && mv $out.tmp $out || rm -f $out.tmp
+  exit
+fi
+
+IFS=$'\x1f' read -r dir stdin_pr stdin_pr_url <<<"$(jq -r \
+  '[.workspace.current_dir // .cwd // "", .pr.number // "", .pr.url // ""] | map(tostring) | join("\u001f")')"
+cd ${dir:-.} 2>/dev/null || exit 0
+info=(${(f)"$(git rev-parse --path-format=absolute --git-dir --git-common-dir --show-toplevel 2>/dev/null)"})
+(( $#info == 3 )) || exit 0
+gitdir=$info[1] common=$info[2] top=$info[3]
+head=$(git symbolic-ref -q --short HEAD) || head=$(git rev-parse -q --short HEAD)
+
+r=$'\e[0m' dim=$'\e[2m' osc=$'\e]8;;' st=$'\e\\'
+link() { print -rn -- $'\e[4:4m'$osc$1$st$2$osc$st$'\e[24m' }
+
+if [[ $gitdir == $common ]]; then
+  print -r -- "$dim-| $head$r"
+  exit
+fi
+
+cd $top
+branch=${head#wt/}
+repo=${$(git remote get-url origin 2>/dev/null)%.git}
+case $repo in
+  git@*:*) repo=https://${${repo#git@}/:/\/} ;;
+  ssh://git@*) repo=https://${repo#ssh://git@} ;;
+esac
+
+changes=(${(f)"$(git --no-optional-locks status --porcelain --untracked-files=normal 2>/dev/null)"})
+newest=0
+for p in ${changes[1,100]}; do
+  zstat -A m +mtime -- ${${p[4,-1]}##* -> } 2>/dev/null && (( m[1] > newest )) && newest=$m[1]
+done
+zstat -A m +mtime -- $gitdir/logs/HEAD 2>/dev/null && (( m[1] > newest )) && newest=$m[1]
+
+unpushed=$(git rev-list --count HEAD --not --remotes=origin 2>/dev/null || print 0)
+behind=0
+[[ $head == wt/* ]] && git show-ref -q --verify refs/heads/$branch &&
+  behind=$(git rev-list --count refs/heads/$branch..HEAD)
+default=$(git symbolic-ref -q --short refs/remotes/origin/HEAD || print origin/main)
+work=$(git rev-list --count $default..HEAD 2>/dev/null || print 0)
+
+issue_urls=()
+for t in ${(s:/:)branch//[-_.]//}; do
+  [[ $t == i[0-9]## && -n $repo ]] && issue_urls+=($repo/issues/${t#i})
+done
+
+mkdir -p $cache_dir
+cache=$cache_dir/${${common:h}//[^A-Za-z0-9]/-}--${branch//[^A-Za-z0-9]/-}.json
+zstat -A m +mtime -- $cache 2>/dev/null || m=(0)
+if (( EPOCHSECONDS - m[1] > ttl )) && command -v gh >/dev/null; then
+  lock=$cache.lock
+  zstat -A lm +mtime -- $lock 2>/dev/null && (( EPOCHSECONDS - lm[1] > 120 )) && rmdir $lock
+  if mkdir $lock 2>/dev/null; then
+    zsh -c '"$0" "$@"; rmdir "${4}.lock"' $0:A --refresh $top $branch $cache $issue_urls \
+      </dev/null >/dev/null 2>&1 &!
+  fi
+fi
+
+pr=() issues=()
+if [[ -s $cache ]]; then
+  pr=(${(ps:\x1f:)"$(jq -r '.pr // empty | [.number, .url, .state, .checks] | map(tostring) | join("\u001f")' $cache)"})
+  issues=(${(f)"$(jq -r '.issues[] | [.number, .url, .state, .reason // ""] | map(tostring) | join("\u001f")' $cache)"})
+fi
+# Claude's own PR lookup lands before the first gh refresh does.
+[[ -z $pr && -n $stdin_pr ]] && pr=($stdin_pr $stdin_pr_url OPEN "")
+if [[ -z $issues ]]; then
+  for u in $issue_urls; do issues+=("${u:t}"$'\x1f'"$u"$'\x1f'OPEN$'\x1f'); done
+fi
+
+(( $#issues > 1 && ${COLUMNS:-80} < 50 )) && issues=($issues[1])
+left=()
+for i in $issues; do
+  f=("${(@ps:\x1f:)i}")
+  [[ $f[3] == OPEN ]] && left+=("$(link $f[2] "#$f[1]")") || left+=("$dim$(link $f[2] "#$f[1]")$r")
+done
+(( $#left )) || left=("$dim$branch$r")
+
+if (( $#changes )); then arrow='~~>'
+elif (( unpushed )); then arrow='-->'
+elif (( behind )); then arrow='==>'
+elif (( work )) || [[ -n $pr ]]; then arrow='==='
+else arrow='...'
+fi
+(( EPOCHSECONDS - newest < active_window )) && arrow=$'\e[33m'$arrow$r || arrow=$dim$arrow$r
+
+out="${(j: :)left} $arrow"
+if [[ -n $pr ]]; then
+  case $pr[3] in
+    OPEN) c=32 ;; MERGED) c=35 ;; CLOSED) c=31 ;; *) c=90 ;;
+  esac
+  out+=" "$'\e['${c}m$(link $pr[2] $pr[1])$r
+  case $pr[4] in
+    pass) out+=$'\e[32m✓'$r ;; fail) out+=$'\e[31m✗'$r ;; pending) out+=$'\e[33m·'$r ;;
+  esac
+fi
+
+if (( ${COLUMNS:-80} >= 80 )); then
+  counts=()
+  (( $#changes )) && counts+=("+$#changes")
+  (( unpushed )) && counts+=("↑$unpushed")
+  (( $#counts )) && out+="  $dim${(j: :)counts}$r"
+fi
+
+print -r -- $out

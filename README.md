@@ -51,6 +51,31 @@ then opens an assigned PR from `wt/<branch>` to `origin/<branch>`.
 The `wt-clean` skill lists the repo's worktrees, sorts them by whether removing them loses
 anything, and runs `wt-rm` on the ones you pick.
 
+## Status line
+
+`wt-status` is a Claude Code status line for worktree sessions. `/wt:statusline` installs it.
+
+```
+#545 ~~> 562✓  +3 ↑2
+```
+
+Issues sit on the left and the PR on the right. The arrow between them is a JetBrains Mono
+ligature, and its stroke shows how far the work has gone:
+
+| arrow | state |
+|---|---|
+| `-\|` | not in a worktree |
+| `...` | nothing done yet |
+| `~~>` | uncommitted edits |
+| `-->` | commits not pushed |
+| `==>` | pushed, `main/` hasn't pulled |
+| `===` | pushed and pulled |
+
+The arrow turns yellow while files are changing. The PR number's color is its state, and
+`✓` `✗` `·` are its checks. Issue and PR numbers are links. Issues come from `i<number>` in
+the branch name and from the PR's closing references. The `gh` lookups run in the
+background and are cached for 60 seconds in `~/.cache/wt-status`.
+
 ## Rules that keep `git pull` working
 
 Never amend, rebase, or reset commits on a `wt/` branch — the main checkout may already have
