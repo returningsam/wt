@@ -1,9 +1,9 @@
 ---
-name: worktree-pr
+name: pr
 description: >
   Fix a bug in an isolated git worktree, get independent subagent reviews before
   anything is pushed, fold them in, then open an assigned PR. Takes a bug description or a
-  GitHub issue link. Use when the user invokes /worktree-pr, or asks to fix a bug in a
+  GitHub issue link. Use when the user invokes /wt:pr, or asks to fix a bug in a
   worktree and PR it.
 ---
 
@@ -78,7 +78,7 @@ Invoke the **herd-review** skill (`Skill(skill: "herd-review")`) on the worktree
 
 - the worktree path and the exact diff command (`git diff <base>...HEAD`),
 - the bug restatement from §1 and the issue URL, if there is one,
-- an explicit instruction that this is a `/worktree-pr` run: **apply confirmed blocking and
+- an explicit instruction that this is a `/wt:pr` run: **apply confirmed blocking and
   worth-fixing findings without asking**, since the run continues straight to the PR.
 
 It reads the change, sizes the review to its risk, spawns read-only reviewers, triages the
