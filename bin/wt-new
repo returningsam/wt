@@ -2,7 +2,8 @@
 # Usage: wt-new [--base <ref>] <branch>
 #        wt-new --migrate
 #
-# Layout: <container>/main (main checkout) + <container>/worktrees/wt-<branch>.
+# Layout: <container>/main (main checkout) + <container>/worktrees/wt-<branch>, marked by
+# <container>/.wt (git-config format, written by /wt:setup).
 # The worktree works on wt/<branch>; <branch> in main/ tracks wt/<branch> locally,
 # so `git pull` in main/ picks up the worktree's commits.
 # Prints the worktree path as the last line of stdout; everything else goes to stderr.
@@ -25,9 +26,13 @@ common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || d
 [[ ${common:t} == .git ]] || die "bare repos aren't supported"
 root=${common:h}
 
-if [[ ${root:t} == main ]]; then
+if [[ -f ${root:h}/.wt ]]; then
   [[ -n $migrate ]] && die "already migrated: $root"
   container=${root:h}
+elif [[ ${root:t} == main && -d ${root:h}/worktrees ]]; then
+  print -u2 -- "wt-new: ${root:h} is laid out as main/ + worktrees/ but has no .wt file.
+Run /wt:setup in Claude Code from $root to create it."
+  exit 3
 else
   if [[ -z $migrate ]]; then
     print -u2 -- "wt-new: $root isn't in the main/ + worktrees/ layout yet.
@@ -60,7 +65,8 @@ Migrating moves it to $root/main, which breaks anything open on the old path.
     mv $projects/$(slug $root) $projects/$(slug $root/main)
   fi
 
-  print -u2 -- "wt-new: migrated to $root/main"
+  print -u2 -- "wt-new: migrated to $root/main
+Next, run /wt:setup in Claude Code from $root/main to write $root/.wt."
   exit 0
 fi
 

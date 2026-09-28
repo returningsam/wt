@@ -1,6 +1,6 @@
 {
   "name": "wt",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "description": "Git worktrees in a main/ + worktrees/ layout, on wt/ branches the main checkout can pull from",
   "author": { "name": "Samuel Kilgus" }
 }
