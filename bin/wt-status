@@ -1,7 +1,10 @@
 #!/bin/zsh
 # Claude Code statusLine: the session's issues, worktree state, and PR on one line.
 #
-#   #545 ~~> 562✓  +3 ↑2
+#   <issue> 545 ~~> <pr> 562✓  +3 ↑2
+#
+# Issues and the PR carry GitHub's Octicon for their state, from the Nerd Font symbols
+# Ghostty bundles, colored as GitHub colors them.
 #
 # The arrow is a JetBrains Mono ligature whose stroke is how far the work has travelled:
 #   -|   not in a worktree        ...  nothing done yet
@@ -57,7 +60,11 @@ gitdir=$info[1] common=$info[2] top=$info[3]
 head=$(git symbolic-ref -q --short HEAD) || head=$(git rev-parse -q --short HEAD)
 
 r=$'\e[0m' dim=$'\e[2m' osc=$'\e]8;;' st=$'\e\\'
-link() { print -rn -- $'\e[4:4m'$osc$1$st$2$osc$st$'\e[24m' }
+link() { print -rn -- $osc$1$st$2$osc$st }
+typeset -A oct=(
+  issue_opened $'\xef\x90\x9b'  issue_closed $'\xef\x90\x9d'  skip $'\xef\x94\x97'
+  pr $'\xef\x90\x87'  pr_draft $'\xef\x93\x9d'  pr_closed $'\xef\x93\x9c'  merge $'\xef\x90\x99'
+)
 
 if [[ $gitdir == $common ]]; then
   print -r -- "$dim-| $head$r"
@@ -118,7 +125,13 @@ fi
 left=()
 for i in $issues; do
   f=("${(@ps:\x1f:)i}")
-  [[ $f[3] == OPEN ]] && left+=("$(link $f[2] "#$f[1]")") || left+=("$dim$(link $f[2] "#$f[1]")$r")
+  case $f[3]:$f[4] in
+    OPEN:*) icon=$'\e[32m'$oct[issue_opened] ;;
+    *:NOT_PLANNED|*:DUPLICATE) icon=$'\e[90m'$oct[skip] ;;
+    *) icon=$'\e[35m'$oct[issue_closed] ;;
+  esac
+  [[ $f[3] == OPEN ]] && num=$(link $f[2] $f[1]) || num=$dim$(link $f[2] $f[1])
+  left+=("$icon$r $num$r")
 done
 (( $#left )) || left=("$dim$branch$r")
 
@@ -133,9 +146,12 @@ fi
 out="${(j: :)left} $arrow"
 if [[ -n $pr ]]; then
   case $pr[3] in
-    OPEN) c=32 ;; MERGED) c=35 ;; CLOSED) c=31 ;; *) c=90 ;;
+    OPEN) c=32 icon=$oct[pr] ;;
+    MERGED) c=35 icon=$oct[merge] ;;
+    CLOSED) c=31 icon=$oct[pr_closed] ;;
+    *) c=90 icon=$oct[pr_draft] ;;
   esac
-  out+=" "$'\e['${c}m$(link $pr[2] $pr[1])$r
+  out+=" "$'\e['${c}m"$icon $(link $pr[2] $pr[1])"$r
   case $pr[4] in
     pass) out+=$'\e[32m✓'$r ;; fail) out+=$'\e[31m✗'$r ;; pending) out+=$'\e[33m·'$r ;;
   esac

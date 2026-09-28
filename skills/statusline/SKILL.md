@@ -46,15 +46,16 @@ To remove it, delete the `statusLine` key.
 One line saying where the setting points, then the legend:
 
 ```
-#545 ~~> 562✓  +3 ↑2
+545 ~~> 562✓  +3 ↑2
 -|   not in a worktree        ...  nothing done yet
 ~~>  uncommitted edits        -->  commits not pushed
 ==>  pushed, main/ not pulled ===  pushed and pulled
 ```
 
-The arrow turns yellow while files are changing. PR color is its state (green open, grey
-draft, purple merged, red closed), and `✓` `✗` `·` are its checks. Issue and PR numbers
-are links (cmd-click).
+The arrow turns yellow while files are changing. Each issue and PR number has GitHub's
+Octicon for its state in front of it, in GitHub's colors: green open, grey draft or not
+planned, purple merged or completed, red closed. `✓` `✗` `·` are the PR's checks. Issue
+and PR numbers are links (cmd-click).
 
 Mention only the caveats that apply:
 

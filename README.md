@@ -56,7 +56,7 @@ anything, and runs `wt-rm` on the ones you pick.
 `wt-status` is a Claude Code status line for worktree sessions. `/wt:statusline` installs it.
 
 ```
-#545 ~~> 562✓  +3 ↑2
+545 ~~> 562✓  +3 ↑2
 ```
 
 Issues sit on the left and the PR on the right. The arrow between them is a JetBrains Mono
@@ -71,8 +71,10 @@ ligature, and its stroke shows how far the work has gone:
 | `==>` | pushed, `main/` hasn't pulled |
 | `===` | pushed and pulled |
 
-The arrow turns yellow while files are changing. The PR number's color is its state, and
-`✓` `✗` `·` are its checks. Issue and PR numbers are links. Issues come from `i<number>` in
+The arrow turns yellow while files are changing. Each issue and PR number has GitHub's
+Octicon for its state in front of it, in GitHub's colors, and `✓` `✗` `·` are the PR's
+checks. The icons come from the Nerd Font symbols Ghostty bundles; other terminals need a
+Nerd Font. Issue and PR numbers are links. Issues come from `i<number>` in
 the branch name and from the PR's closing references. The `gh` lookups run in the
 background and are cached for 60 seconds in `~/.cache/wt-status`.
 
