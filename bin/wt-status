@@ -41,8 +41,15 @@ if [[ $1 == --refresh ]]; then
   exit
 fi
 
-IFS=$'\x1f' read -r dir stdin_pr stdin_pr_url <<<"$(jq -r \
-  '[.workspace.current_dir // .cwd // "", .pr.number // "", .pr.url // ""] | map(tostring) | join("\u001f")')"
+IFS=$'\x1f' read -r dir session stdin_pr stdin_pr_url <<<"$(jq -r \
+  '[.workspace.current_dir // .cwd // "", .session_id // "", .pr.number // "", .pr.url // ""] | map(tostring) | join("\u001f")')"
+# wt-new records the worktree it made for this session. Claude resets the shell to the
+# project dir after each command, so current_dir never lands in a sibling worktree.
+marker=$cache_dir/sessions/${session//[^A-Za-z0-9-]/}
+if [[ -n $session && -f $marker ]]; then
+  wt=$(<$marker)
+  [[ -d $wt ]] && dir=$wt || rm -f $marker
+fi
 cd ${dir:-.} 2>/dev/null || exit 0
 info=(${(f)"$(git rev-parse --path-format=absolute --git-dir --git-common-dir --show-toplevel 2>/dev/null)"})
 (( $#info == 3 )) || exit 0

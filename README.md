@@ -76,6 +76,12 @@ The arrow turns yellow while files are changing. The PR number's color is its st
 the branch name and from the PR's closing references. The `gh` lookups run in the
 background and are cached for 60 seconds in `~/.cache/wt-status`.
 
+Claude resets its shell to the project dir after every command, so a session started in
+`main/` never sits in the worktree it works on. When `wt-new` runs inside a Claude session,
+it records the worktree under the session ID in `~/.cache/wt-status/sessions`, and the
+status line shows that worktree for the rest of the session, including after
+`claude --resume`. `wt-rm` clears the record.
+
 ## Rules that keep `git pull` working
 
 Never amend, rebase, or reset commits on a `wt/` branch — the main checkout may already have

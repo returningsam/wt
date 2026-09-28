@@ -66,4 +66,8 @@ if g show-ref -q --verify refs/heads/$branch; then
   fi
 fi
 
+for f in ${XDG_CACHE_HOME:-$HOME/.cache}/wt-status/sessions/*(N.); do
+  if [[ $(<$f) == ${dir:A} ]]; then rm -f $f; fi
+done
+
 print -u2 -- "wt-rm: removed $dir and $wtb"

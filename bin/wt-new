@@ -94,4 +94,13 @@ else
   g branch -q --track $branch $wtb
 fi
 
+if [[ -n ${CLAUDE_CODE_SESSION_ID:-} ]]; then
+  {
+    sessions=${XDG_CACHE_HOME:-$HOME/.cache}/wt-status/sessions
+    mkdir -p $sessions
+    find $sessions -type f -mtime +30 -delete
+    print -r -- ${dir:A} >$sessions/${CLAUDE_CODE_SESSION_ID//[^A-Za-z0-9-]/}
+  } || true
+fi
+
 print -r -- $dir
