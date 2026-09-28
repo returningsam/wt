@@ -48,8 +48,8 @@ subagents through `wt-new` and `wt-rm`, so agent worktrees land in the same layo
 The `pr` skill (`/wt:pr`) fixes a bug in a worktree, runs independent reviews over it,
 then opens an assigned PR from `wt/<branch>` to `origin/<branch>`.
 
-The `wt-clean` skill lists the repo's worktrees, sorts them by whether removing them loses
-anything, and runs `wt-rm` on the ones you pick.
+The `clean` skill (`/wt:clean`) lists the repo's worktrees, sorts them by whether removing
+them loses anything, and runs `wt-rm` on the ones you pick.
 
 ## Status line
 

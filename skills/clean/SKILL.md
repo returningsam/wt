@@ -1,10 +1,10 @@
 ---
-name: wt-clean
+name: clean
 description: >
   Find stale git worktrees in the current repo, remove the ones whose work is already
   merged, and sort the rest into safe-to-remove, needs a decision, and keep for the user to
   pick from. Use when the user invokes
-  /wt-clean, or asks to clean up, prune, or list stale worktrees.
+  /wt:clean, or asks to clean up, prune, or list stale worktrees.
 ---
 
 Clean up worktrees in the current repo. Gather facts, classify, remove merged work, ask
