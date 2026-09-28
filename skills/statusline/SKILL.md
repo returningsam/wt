@@ -61,6 +61,7 @@ Mention only the caveats that apply:
 
 - The arrows are ligatures in JetBrains Mono (Ghostty's default). In other fonts they
   show as plain `~~>` and `-->`.
-- Inside tmux, links and dotted underlines need
-  `set -as terminal-features ',*:hyperlinks:usstyle'`.
+- Inside tmux, links need `set -as terminal-features ',*:hyperlinks'`, and Claude needs
+  `FORCE_HYPERLINK=1` exported from the shell, since `TERM_PROGRAM=tmux` makes it drop
+  links. With tmux `mouse on`, open links with cmd+shift+click.
 - If the numbers show but don't click, launch Claude with `FORCE_HYPERLINK=1`.
