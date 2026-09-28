@@ -1,16 +1,33 @@
 ---
 name: statusline
 description: >
-  Install wt-status as the Claude Code status line: the session's issues, worktree state,
-  and PR on one line. Use when the user invokes /wt:statusline, or asks to set up or
-  remove the wt status line.
+  Turn the wt-status Claude Code status line on or off: the session's issues, worktree
+  state, and PR on one line. Takes an optional `on` or `off`; with neither it toggles. Use
+  when the user invokes /wt:statusline, or asks to set up, enable, disable, or remove the
+  wt status line.
+argument-hint: "[on|off]"
 ---
 
-Point `statusLine` in `~/.claude/settings.json` at `wt-status`. Plugins can't set
-`statusLine` themselves, so this skill writes it.
+Point `statusLine` in `~/.claude/settings.json` at `wt-status`, or remove it. Plugins
+can't set `statusLine` themselves, so this skill writes it.
 
 **Authorization:** invoking this skill authorizes editing the `statusLine` key of
 `~/.claude/settings.json`, and nothing else in that file.
+
+## 0. Pick the action
+
+Read `~/.claude/settings.json` (it may be a symlink into a dotfiles repo; edit the target).
+wt-status is on when `statusLine.command` ends in `/wt-status`.
+
+- `on`: turn it on, even if it's already on (this refreshes a stale script path).
+- `off`: turn it off. If it's already off, say so and stop.
+- No argument: toggle. Off, or some other status line, means turn it on.
+
+To turn it off, delete the `statusLine` key and report it in one line. Skip the rest of
+this skill. If `statusLine` points at something other than wt-status, leave it alone and
+say wt-status isn't the current status line.
+
+To turn it on, continue below.
 
 ## 1. Find the script
 
@@ -24,7 +41,6 @@ state and branch issues, but not PR state, checks, or closed issues.
 
 ## 2. Write the setting
 
-Read `~/.claude/settings.json` (it may be a symlink into a dotfiles repo; edit the target).
 If `statusLine` is already set to something other than `wt-status`, show it and ask before
 replacing it. Then set:
 
@@ -38,8 +54,6 @@ replacing it. Then set:
 
 `refreshInterval` lets the yellow "files changing" arrow fade and picks up the background
 `gh` refresh while the session is idle.
-
-To remove it, delete the `statusLine` key.
 
 ## 3. Report
 

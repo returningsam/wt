@@ -53,7 +53,8 @@ them loses anything, and runs `wt-rm` on the ones you pick.
 
 ## Status line
 
-`wt-status` is a Claude Code status line for worktree sessions. `/wt:statusline` installs it.
+`wt-status` is a Claude Code status line for worktree sessions. `/wt:statusline` toggles it,
+and `/wt:statusline on` or `off` sets it.
 
 ```
 545 ~~> 562✓  +3 ↑2
