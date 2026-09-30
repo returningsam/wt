@@ -63,8 +63,9 @@ export PATH="$HOME/.claude/plugins/marketplaces/wt/bin:$PATH"
 `WorktreeCreate` and `WorktreeRemove` hooks route `claude --worktree` and worktree-isolated
 subagents through `wt-new` and `wt-rm`, so agent worktrees land in the same layout.
 
-The `pr` skill (`/wt:pr`) fixes a bug in a worktree, runs independent reviews over it,
-then opens an assigned PR from `wt/<branch>` to `origin/<branch>`.
+The `pr` skill (`/wt:pr`) implements an issue in a worktree (a bug fix, a feature, anything a
+PR can resolve), runs independent reviews over it, then opens an assigned PR from `wt/<branch>`
+to `origin/<branch>`.
 
 The `setup` skill (`/wt:setup`) writes or updates `.wt`. It suggests a name and finds the
 repo's project board from the boards its recent issues are on.
