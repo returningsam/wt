@@ -48,13 +48,13 @@ export PATH="$HOME/.claude/plugins/marketplaces/wt/bin:$PATH"
 - `wt new [--base <ref>] <branch>` — create `worktrees/wt-<branch>` on `wt/<branch>`, and
   point `<branch>` in `main/` at it. Prints the worktree path. Starts from an existing local
   or remote `<branch>` when there is one, otherwise from the default branch.
+- `wt rm [--force] <branch | path>` — remove the worktree and its `wt/` branch, and point
+  `<branch>` back at `origin/<branch>`. Refuses when the worktree is dirty or its commits
+  exist nowhere else.
 - `wt migrate` — move a repo into the `main/` + `worktrees/` layout. Repairs existing
   worktrees and moves Claude's per-project history to the new path. Run it with the editor and
   dev servers closed; it moves the repo out from under anything open on it.
   Then run `/wt:setup` to write `.wt`.
-- `wt rm [--force] <branch | path>` — remove the worktree and its `wt/` branch, and point
-  `<branch>` back at `origin/<branch>`. Refuses when the worktree is dirty or its commits
-  exist nowhere else.
 
 `wt new` exits 3 when the repo still needs migrating, or when `.wt` is missing. `wt` with no
 arguments lists the commands, and `wt status` is the status line command described below.
