@@ -65,7 +65,8 @@ subagents through `wt-new` and `wt-rm`, so agent worktrees land in the same layo
 
 The `pr` skill (`/wt:pr`) implements an issue in a worktree (a bug fix, a feature, anything a
 PR can resolve), runs independent reviews over it, then opens an assigned PR from `wt/<branch>`
-to `origin/<branch>`.
+to `origin/<branch>`. It hands the implementation to one of the plugin's `implementer-*`
+agents, all on Opus, picking `medium`, `high`, or `xhigh` effort from how hard the work looks.
 
 The `setup` skill (`/wt:setup`) writes or updates `.wt`. It suggests a name and finds the
 repo's project board from the boards its recent issues are on.

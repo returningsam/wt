@@ -71,18 +71,27 @@ package manager the committed lockfile implies.
 
 ## 3. Implement
 
-- For a bug report, find the actual defect; don't pattern-match the symptom. If no real
-  defect matches the report, stop and say so rather than inventing a plausible change. Fix the
-  cause, keep the diff to what the bug needs.
-- For a feature or any other change, build what the issue asks for and keep the diff to that
-  scope. If the code already does it, or contradicts what the issue assumes, stop and say so
-  rather than building something anyway.
-- Note adjacent problems for the final report instead of fixing them.
-- Follow repo conventions (CLAUDE.md, the neighbors' idiom and comment density).
-- Run the repo's verification command (`yarn validate`, `npm test`, `make check`, …) — it
-  must pass before review. Never start a dev server or Storybook.
-- Commit locally so reviewers get a stable diff. Subject: plainly what changed and where,
-  imperative, no metaphor — rationale goes in the body. No `Co-Authored-By` trailer.
+Hand the implementation to an implementer agent, and pick its effort from the work. Every
+implementer runs on Opus. Look at the code the restatement points to first, enough to judge
+how hard the change is, then pick one:
+
+| Agent | When |
+|---|---|
+| `wt:implementer-medium` | Docs, copy, config, or a small change whose location is already known |
+| `wt:implementer-high` | A bug whose cause needs tracing, or a feature in one area. The default when unsure |
+| `wt:implementer-xhigh` | The cause is still unknown after a first look, the change spans subsystems, or it touches auth, migrations, concurrency, a public API, or money |
+
+Spawn it in the foreground (`run_in_background: false`) and give it the worktree path, the
+restatement from §1, the issue URL and its relevant comments, the base branch, and the repo's
+verification command (`yarn validate`, `npm test`, `make check`, …). If those agent types
+aren't available, spawn `general-purpose` with `model: opus` and the agent file's
+instructions, and say so in the report.
+
+When it returns, check its work rather than its summary: `git log <base>..HEAD` shows the
+commit, and verification passes when you run it yourself. If it stopped instead (no real
+defect, the code already does it, the scope grew), relay that and stop the run. If its result
+is wrong or incomplete, spawn it again with what's missing, one tier higher if the miss looks
+like the work was harder than you judged. Keep the adjacent problems it noted for §6.
 
 ## 4. Review — before anything is published
 
@@ -139,7 +148,7 @@ PR: [<full URL>](<full URL>)
 Never a bare `#123`, and never leave the link out, even when the run ends with a warning.
 Then:
 
-- What the change does (a sentence or two).
+- What the change does (a sentence or two), and which implementer tier did it.
 - What the reviews changed: findings applied, findings rejected + why.
 - Anything adjacent left alone deliberately, and any part of the issue a PR can't do.
 - The worktree path, still on disk, and that `git switch <branch> && git pull` in the main
