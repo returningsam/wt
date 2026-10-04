@@ -18,16 +18,16 @@ can't set `statusLine` themselves, so this skill writes it.
 
 Read `~/.claude/settings.json` (it may be a symlink into a dotfiles repo; edit the target).
 The wt status line is on when `statusLine.command` ends in `/wt status`. A command ending in
-`/wt-status` is from before wt 0.8.0 and its script no longer exists, so both `on` and the
-toggle replace it with the current command.
+`/wt-status` is the wt status line from before 0.8.0, whose script no longer exists. Treat it
+as the wt status line everywhere below, except that the toggle turns it on, not off.
 
-- `on`: turn it on, even if it's already on (this refreshes a stale script path).
+- `on`: turn it on, even if it's already on (this refreshes a stale command path).
 - `off`: turn it off. If it's already off, say so and stop.
-- No argument: toggle. Off, or some other status line, means turn it on.
+- No argument: toggle. Off, some other status line, or a pre-0.8.0 one means turn it on.
 
 To turn it off, delete the `statusLine` key and report it in one line. Skip the rest of
-this skill. If `statusLine` points at something other than the wt status line, leave it alone and
-say the wt status line isn't the current one.
+this skill. If `statusLine` points at something other than the wt status line, leave it
+alone and say the wt status line isn't the current one.
 
 To turn it on, continue below.
 
@@ -35,16 +35,18 @@ To turn it on, continue below.
 
 Use `~/.claude/plugins/marketplaces/wt/bin/wt` when it exists: the marketplace clone keeps
 its path across plugin updates. Otherwise use `bin/wt` two levels up from this skill's base
-directory, and tell the user that path changes with each plugin
-version, so they'll need to rerun this skill after an update.
+directory, and tell the user that path changes with each plugin version, so they'll need to
+rerun this skill after an update. Write a path under `$HOME` with a leading `~/` rather
+than quoting it. Claude Code runs the command through `sh -c`, which expands `~`, and a
+quoted path would stop step 0 from recognizing it.
 
 Check that `jq` and `gh` are on `PATH`. Without `gh` the line still shows the worktree
 state and branch issues, but not PR state, checks, or closed issues.
 
 ## 2. Write the setting
 
-If `statusLine` is already set to something other than the wt status line, show it and ask before
-replacing it. Then set:
+If `statusLine` is already set to something other than the wt status line, show it and ask
+before replacing it. Then set:
 
 ```json
 "statusLine": {

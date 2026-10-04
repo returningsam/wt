@@ -4,7 +4,7 @@
 #   new [--base <ref>] <branch>      create a worktree on wt/<branch>
 #   new --migrate                    move a repo into the main/ + worktrees/ layout
 #   rm [--force] <branch | path>     remove a worktree and its wt/ branch
-#   status                           Claude Code status line, session JSON on stdin
+#   status                           print the Claude Code status line from session JSON on stdin
 
 self=$0:A
 usage() { sed -n '2,/^$/s/^# \{0,1\}//p' $self }
@@ -13,7 +13,7 @@ libexec=${self:h:h}/libexec
 case ${1-} in
   ''|-h|--help|help) usage; exit ;;
   */*) ;;
-  *) [[ -f $libexec/$1 ]] && exec $libexec/$1 "${@:2}" ;;
+  *) [[ -f $libexec/$1 && -x $libexec/$1 ]] && exec $libexec/$1 "${@:2}" ;;
 esac
 print -u2 -- "wt: unknown command '$1'"
 usage >&2
