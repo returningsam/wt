@@ -13,7 +13,7 @@
 # It turns yellow while files are changing. PR state is its color, checks trail it.
 #
 # Usage: statusLine command, session JSON on stdin.
-#        wt-status --refresh <dir> <branch> <cache> [issue urls...]  (internal, gh cache)
+#        wt status --refresh <dir> <branch> <cache> [issue urls...]  (internal, gh cache)
 
 zmodload zsh/stat zsh/datetime
 setopt extended_glob
@@ -46,7 +46,7 @@ fi
 
 IFS=$'\x1f' read -r dir session stdin_pr stdin_pr_url <<<"$(jq -r \
   '[.workspace.current_dir // .cwd // "", .session_id // "", .pr.number // "", .pr.url // ""] | map(tostring) | join("\u001f")')"
-# wt-new records the worktree it made for this session. Claude resets the shell to the
+# wt new records the worktree it made for this session. Claude resets the shell to the
 # project dir after each command, so current_dir never lands in a sibling worktree.
 marker=$cache_dir/sessions/${session//[^A-Za-z0-9-]/}
 if [[ -n $session && -f $marker ]]; then

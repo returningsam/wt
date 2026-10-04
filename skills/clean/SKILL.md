@@ -33,11 +33,11 @@ Skip the main checkout and the worktree this session is running in. For every ot
 worktree, collect:
 
 - **Branch.** From the `branch` line. Detached or not under `wt/` is a legacy or foreign
-  worktree (often under `.claude/worktrees/`); `wt-rm` won't take it, see §4.
+  worktree (often under `.claude/worktrees/`); `wt rm` won't take it, see §4.
 - **Dirty.** `git -C <dir> status --porcelain | wc -l`, split into tracked changes and
   untracked files.
 - **Unique commits.** Commits on `wt/<branch>` that aren't on `<branch>`, `origin/<branch>`,
-  or `$default`. This is the same check `wt-rm` makes:
+  or `$default`. This is the same check `wt rm` makes:
   `git log --oneline wt/<branch> --not <branch> origin/<branch> $default` (drop refs that
   don't exist).
 - **PR.** `gh pr list --head <branch> --state all --json number,state,url,headRefOid,mergedAt`.
@@ -50,7 +50,7 @@ worktree, collect:
 
 - Clean, PR `MERGED`, and every unique commit is in the PR's `headRefOid`
   (`git merge-base --is-ancestor wt/<branch> <headRefOid>`). When the remote branch is gone
-  after a squash merge, `wt-rm` needs `--force`.
+  after a squash merge, `wt rm` needs `--force`.
 - Clean, and `wt/<branch>` is an ancestor of `$default` (a regular merge).
 
 Only ask first if `lsof` (§3) finds a process using the directory.
@@ -85,12 +85,12 @@ list them" instead of one option per worktree.
 For each selected `wt/` worktree:
 
 ```bash
-wt-rm <branch>            # clean, no unique commits
-wt-rm --force <branch>    # verified merge wt-rm refuses, or the user chose to drop the work
+wt rm <branch>            # clean, no unique commits
+wt rm --force <branch>    # verified merge wt rm refuses, or the user chose to drop the work
 ```
 
 Use `--force` only for a verified merge, or for a needs-a-decision worktree
-the user selected knowing what it drops. If `wt-rm` refuses anything else, report its
+the user selected knowing what it drops. If `wt rm` refuses anything else, report its
 message and move on; don't retry with `--force`.
 
 For a legacy or foreign worktree, use `git -C <root> worktree remove <dir>` (add `--force`
