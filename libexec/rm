@@ -1,13 +1,13 @@
 #!/bin/zsh
-# Usage: wt-rm [--force] <branch | worktree path>
+# Usage: wt rm [--force] <branch | worktree path>
 #
-# Removes a worktree made by wt-new and its wt/<branch> branch. <branch> in main/
+# Removes a worktree made by wt new and its wt/<branch> branch. <branch> in main/
 # goes back to tracking origin/<branch>, or is deleted if it holds no unmerged work.
 # Refuses when the worktree is dirty or wt/<branch> has commits nowhere else, unless --force.
 
 set -euo pipefail
 
-die() { print -u2 -- "wt-rm: $1"; exit 1; }
+die() { print -u2 -- "wt rm: $1"; exit 1; }
 
 force= target=
 while (( $# )); do
@@ -17,7 +17,7 @@ while (( $# )); do
     *) target=$1; shift ;;
   esac
 done
-[[ -n $target ]] || die "usage: wt-rm [--force] <branch | worktree path>"
+[[ -n $target ]] || die "usage: wt rm [--force] <branch | worktree path>"
 
 if [[ -d $target ]]; then
   common=$(git -C $target rev-parse --path-format=absolute --git-common-dir) || die "not a git worktree: $target"
@@ -70,4 +70,4 @@ for f in ${XDG_CACHE_HOME:-$HOME/.cache}/wt-status/sessions/*(N.); do
   if [[ $(<$f) == ${dir:A} ]]; then rm -f $f; fi
 done
 
-print -u2 -- "wt-rm: removed $dir and $wtb"
+print -u2 -- "wt rm: removed $dir and $wtb"

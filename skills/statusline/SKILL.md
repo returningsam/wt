@@ -1,14 +1,14 @@
 ---
 name: statusline
 description: >
-  Turn the wt-status Claude Code status line on or off: the session's issues, worktree
+  Turn the wt Claude Code status line on or off: the session's issues, worktree
   state, and PR on one line. Takes an optional `on` or `off`; with neither it toggles. Use
   when the user invokes /wt:statusline, or asks to set up, enable, disable, or remove the
   wt status line.
 argument-hint: "[on|off]"
 ---
 
-Point `statusLine` in `~/.claude/settings.json` at `wt-status`, or remove it. Plugins
+Point `statusLine` in `~/.claude/settings.json` at `wt status`, or remove it. Plugins
 can't set `statusLine` themselves, so this skill writes it.
 
 **Authorization:** invoking this skill authorizes editing the `statusLine` key of
@@ -17,23 +17,25 @@ can't set `statusLine` themselves, so this skill writes it.
 ## 0. Pick the action
 
 Read `~/.claude/settings.json` (it may be a symlink into a dotfiles repo; edit the target).
-wt-status is on when `statusLine.command` ends in `/wt-status`.
+The wt status line is on when `statusLine.command` ends in `/wt status`. A command ending in
+`/wt-status` is from before wt 0.8.0 and its script no longer exists, so both `on` and the
+toggle replace it with the current command.
 
 - `on`: turn it on, even if it's already on (this refreshes a stale script path).
 - `off`: turn it off. If it's already off, say so and stop.
 - No argument: toggle. Off, or some other status line, means turn it on.
 
 To turn it off, delete the `statusLine` key and report it in one line. Skip the rest of
-this skill. If `statusLine` points at something other than wt-status, leave it alone and
-say wt-status isn't the current status line.
+this skill. If `statusLine` points at something other than the wt status line, leave it alone and
+say the wt status line isn't the current one.
 
 To turn it on, continue below.
 
-## 1. Find the script
+## 1. Find the command
 
-Use `~/.claude/plugins/marketplaces/wt/bin/wt-status` when it exists: the marketplace
-clone keeps its path across plugin updates. Otherwise use `bin/wt-status` two levels up
-from this skill's base directory, and tell the user that path changes with each plugin
+Use `~/.claude/plugins/marketplaces/wt/bin/wt` when it exists: the marketplace clone keeps
+its path across plugin updates. Otherwise use `bin/wt` two levels up from this skill's base
+directory, and tell the user that path changes with each plugin
 version, so they'll need to rerun this skill after an update.
 
 Check that `jq` and `gh` are on `PATH`. Without `gh` the line still shows the worktree
@@ -41,13 +43,13 @@ state and branch issues, but not PR state, checks, or closed issues.
 
 ## 2. Write the setting
 
-If `statusLine` is already set to something other than `wt-status`, show it and ask before
+If `statusLine` is already set to something other than the wt status line, show it and ask before
 replacing it. Then set:
 
 ```json
 "statusLine": {
   "type": "command",
-  "command": "<script path>",
+  "command": "<path>/bin/wt status",
   "refreshInterval": 5
 }
 ```

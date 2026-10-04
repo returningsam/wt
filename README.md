@@ -16,7 +16,7 @@ the worktree, and hot reload keeps running.
 
 ## The .wt file
 
-`<repo>/.wt` marks the layout. `wt-new` won't create worktrees without it. It uses
+`<repo>/.wt` marks the layout. `wt new` won't create worktrees without it. It uses
 git-config syntax, so both shell scripts and git can read it:
 
 ```
@@ -45,23 +45,23 @@ export PATH="$HOME/.claude/plugins/marketplaces/wt/bin:$PATH"
 
 ## Commands
 
-- `wt-new [--base <ref>] <branch>` — create `worktrees/wt-<branch>` on `wt/<branch>`, and
+- `wt new [--base <ref>] <branch>` — create `worktrees/wt-<branch>` on `wt/<branch>`, and
   point `<branch>` in `main/` at it. Prints the worktree path. Starts from an existing local
   or remote `<branch>` when there is one, otherwise from the default branch.
-- `wt-new --migrate` — move a repo into the `main/` + `worktrees/` layout. Repairs existing
+- `wt new --migrate` — move a repo into the `main/` + `worktrees/` layout. Repairs existing
   worktrees and moves Claude's per-project history to the new path. Run it yourself with the
   editor and dev servers closed; it moves the repo out from under anything open on it.
   Then run `/wt:setup` to write `.wt`.
-- `wt-rm [--force] <branch | path>` — remove the worktree and its `wt/` branch, and point
+- `wt rm [--force] <branch | path>` — remove the worktree and its `wt/` branch, and point
   `<branch>` back at `origin/<branch>`. Refuses when the worktree is dirty or its commits
   exist nowhere else.
 
-`wt-new` exits 3 when the repo still needs migrating, or when `.wt` is missing.
+`wt new` exits 3 when the repo still needs migrating, or when `.wt` is missing.
 
 ## Claude integration
 
 `WorktreeCreate` and `WorktreeRemove` hooks route `claude --worktree` and worktree-isolated
-subagents through `wt-new` and `wt-rm`, so agent worktrees land in the same layout.
+subagents through `wt new` and `wt rm`, so agent worktrees land in the same layout.
 
 The `pr` skill (`/wt:pr`) implements an issue in a worktree (a bug fix, a feature, anything a
 PR can resolve), runs independent reviews over it, then opens an assigned PR from `wt/<branch>`
@@ -72,11 +72,11 @@ The `setup` skill (`/wt:setup`) writes or updates `.wt`. It suggests a name and 
 repo's project board from the boards its recent issues are on.
 
 The `clean` skill (`/wt:clean`) lists the repo's worktrees, sorts them by whether removing
-them loses anything, and runs `wt-rm` on the ones you pick.
+them loses anything, and runs `wt rm` on the ones you pick.
 
 ## Status line
 
-`wt-status` is a Claude Code status line for worktree sessions. `/wt:statusline` toggles it,
+`wt status` is a Claude Code status line for worktree sessions. `/wt:statusline` toggles it,
 and `/wt:statusline on` or `off` sets it.
 
 ```
@@ -103,10 +103,10 @@ the branch name and from the PR's closing references. The `gh` lookups run in th
 background and are cached for 60 seconds in `~/.cache/wt-status`.
 
 Claude resets its shell to the project dir after every command, so a session started in
-`main/` never sits in the worktree it works on. When `wt-new` runs inside a Claude session,
+`main/` never sits in the worktree it works on. When `wt new` runs inside a Claude session,
 it records the worktree under the session ID in `~/.cache/wt-status/sessions`, and the
 status line shows that worktree for the rest of the session, including after
-`claude --resume`. `wt-rm` clears the record.
+`claude --resume`. `wt rm` clears the record.
 
 ## Rules that keep `git pull` working
 

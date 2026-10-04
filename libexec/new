@@ -1,6 +1,6 @@
 #!/bin/zsh
-# Usage: wt-new [--base <ref>] <branch>
-#        wt-new --migrate
+# Usage: wt new [--base <ref>] <branch>
+#        wt new --migrate
 #
 # Layout: <container>/main (main checkout) + <container>/worktrees/wt-<branch>, marked by
 # <container>/.wt (git-config format, written by /wt:setup).
@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-die() { print -u2 -- "wt-new: $1"; exit ${2:-1}; }
+die() { print -u2 -- "wt new: $1"; exit ${2:-1}; }
 
 base= migrate= branch=
 while (( $# )); do
@@ -30,15 +30,15 @@ if [[ -f ${root:h}/.wt ]]; then
   [[ -n $migrate ]] && die "already migrated: $root"
   container=${root:h}
 elif [[ ${root:t} == main && -d ${root:h}/worktrees ]]; then
-  print -u2 -- "wt-new: ${root:h} is laid out as main/ + worktrees/ but has no .wt file.
+  print -u2 -- "wt new: ${root:h} is laid out as main/ + worktrees/ but has no .wt file.
 Run /wt:setup in Claude Code from $root to create it."
   exit 3
 else
   if [[ -z $migrate ]]; then
-    print -u2 -- "wt-new: $root isn't in the main/ + worktrees/ layout yet.
+    print -u2 -- "wt new: $root isn't in the main/ + worktrees/ layout yet.
 Migrating moves it to $root/main, which breaks anything open on the old path.
   1. Close VS Code windows and stop dev servers for this repo; exit Claude sessions in it.
-  2. Run: cd $root && wt-new --migrate
+  2. Run: cd $root && wt new --migrate
   3. Reopen from $root/main"
     exit 3
   fi
@@ -65,12 +65,12 @@ Migrating moves it to $root/main, which breaks anything open on the old path.
     mv $projects/$(slug $root) $projects/$(slug $root/main)
   fi
 
-  print -u2 -- "wt-new: migrated to $root/main
+  print -u2 -- "wt new: migrated to $root/main
 Next, run /wt:setup in Claude Code from $root/main to write $root/.wt."
   exit 0
 fi
 
-[[ -n $branch ]] || die "usage: wt-new [--base <ref>] <branch>"
+[[ -n $branch ]] || die "usage: wt new [--base <ref>] <branch>"
 git check-ref-format --branch "wt/$branch" >/dev/null || die "invalid branch name: $branch"
 
 g() { git -C $root "$@" }

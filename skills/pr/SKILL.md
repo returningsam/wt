@@ -56,14 +56,14 @@ Base branch = the integration branch CLAUDE.md names (e.g. a `staging` release g
 Branch name: match existing convention (`git branch -r --sort=-committerdate | head -20`) —
 usually `<type>/i<issue>-<slug>`, where the type (`fix`, `feat`, `chore`, …) matches the work
 and the repo's existing branches. Create the worktree with
-`wt-new --base origin/<base> <branch>` (not `EnterWorktree`). It prints the worktree path as its
+`wt new --base origin/<base> <branch>` (not `EnterWorktree`). It prints the worktree path as its
 last stdout line; `cd` there and confirm with `pwd && git status -sb`. You're on `wt/<branch>`;
 `<branch>` in the main checkout tracks it, so the user can `git pull` there at any time to test
 your commits.
 
-If `wt-new` exits 3, the repo isn't in the `main/` + `worktrees/` layout yet, or it is but
+If `wt new` exits 3, the repo isn't in the `main/` + `worktrees/` layout yet, or it is but
 has no `.wt` file. Relay its instructions to the user and stop. The migration moves the repo
-out from under this session, so never run `wt-new --migrate` yourself. A missing `.wt` is
+out from under this session, so never run `wt new --migrate` yourself. A missing `.wt` is
 fixed with `/wt:setup`; offer it, but don't run it without a yes.
 
 All work happens in the worktree — never edit the original checkout. Install deps with the
@@ -152,7 +152,7 @@ Then:
 - What the reviews changed: findings applied, findings rejected + why.
 - Anything adjacent left alone deliberately, and any part of the issue a PR can't do.
 - The worktree path, still on disk, and that `git switch <branch> && git pull` in the main
-  checkout gets the work. Clean up with `wt-rm <branch>` only if the user asks.
+  checkout gets the work. Clean up with `wt rm <branch>` only if the user asks.
 - Where the issue's board item ended up, or why it couldn't be moved.
 
 ## Stops
