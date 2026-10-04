@@ -62,9 +62,8 @@ last stdout line; `cd` there and confirm with `pwd && git status -sb`. You're on
 your commits.
 
 If `wt new` exits 3, the repo isn't in the `main/` + `worktrees/` layout yet, or it is but
-has no `.wt` file. Relay its instructions to the user and stop. The migration moves the repo
-out from under this session, so never run `wt new --migrate` yourself. A missing `.wt` is
-fixed with `/wt:setup`; offer it, but don't run it without a yes.
+has no `.wt` file. Relay its instructions to the user and stop. A missing `.wt` is fixed
+with `/wt:setup`; offer it, but don't run it without a yes.
 
 All work happens in the worktree — never edit the original checkout. Install deps with the
 package manager the committed lockfile implies.

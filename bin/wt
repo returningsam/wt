@@ -2,8 +2,8 @@
 # Usage: wt <command> [args...]
 #
 #   new [--base <ref>] <branch>      create a worktree on wt/<branch>
-#   new --migrate                    move a repo into the main/ + worktrees/ layout
 #   rm [--force] <branch | path>     remove a worktree and its wt/ branch
+#   migrate                          move a repo into the main/ + worktrees/ layout
 #   status                           print the Claude Code status line from session JSON on stdin
 
 self=$0:A
