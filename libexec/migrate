@@ -1,0 +1,45 @@
+#!/bin/zsh
+# Usage: wt migrate
+#
+# Moves the repo into the main/ + worktrees/ layout. <root> becomes <root>/main, next to an
+# empty <root>/worktrees. Repairs linked worktrees and moves Claude's per-project history
+# to the new path. Then /wt:setup writes <root>/.wt.
+
+set -euo pipefail
+
+die() { print -u2 -- "wt migrate: $1"; exit 1; }
+
+(( $# == 0 )) || die "usage: wt migrate"
+
+common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || die "not in a git repo"
+[[ ${common:t} == .git ]] || die "bare repos aren't supported"
+root=${common:h}
+
+[[ -f ${root:h}/.wt ]] && die "already migrated: $root"
+[[ ${root:t} == main && -d ${root:h}/worktrees ]] &&
+  die "${root:h} is already laid out as main/ + worktrees/. Run /wt:setup in Claude Code from $root to write its .wt file."
+
+linked=(${(f)"$(git -C $root worktree list --porcelain | sed -n 's/^worktree //p' | tail -n +2)"})
+linked=(${linked:#})
+tmp=$root.wt-migrate-$$
+[[ -e $tmp ]] && die "$tmp already exists"
+mv $root $tmp
+mkdir $root
+mv $tmp $root/main
+mkdir $root/worktrees
+
+# Linked worktrees inside the repo moved with it; their gitdir links need repairing either way.
+moved=()
+for p in $linked; do
+  [[ $p == $root/* ]] && moved+=($root/main/${p#$root/}) || moved+=($p)
+done
+git -C $root/main worktree repair $moved >&2
+
+slug() { print -r -- ${1//[^A-Za-z0-9]/-} }
+projects=$HOME/.claude/projects
+if [[ -d $projects/$(slug $root) && ! -e $projects/$(slug $root/main) ]]; then
+  mv $projects/$(slug $root) $projects/$(slug $root/main)
+fi
+
+print -u2 -- "wt migrate: migrated to $root/main
+Next, run /wt:setup in Claude Code from $root/main to write $root/.wt."

@@ -4,7 +4,7 @@ description: >
   Write or update the .wt file that marks a repo as using the main/ + worktrees/ layout,
   with its display name and GitHub project board. Use when the user invokes /wt:setup,
   when wt new exits 3 because .wt is missing and the user asks to fix it, or after
-  wt new --migrate.
+  wt migrate.
 argument-hint: "[name]"
 ---
 
@@ -24,8 +24,7 @@ container=$(dirname "$root")
 ```
 
 The repo must already be in the layout: `$root` ends in `/main` and `$container/worktrees`
-exists. If it isn't, stop and tell the user to run `wt new --migrate` themselves (it moves
-the repo out from under this session, so never run it yourself).
+exists. If it isn't, stop and tell the user to run `wt migrate`.
 
 If git commands in `$root` fail with "must be run in a work tree", check
 `git -C $root config core.bare`. A main checkout with `core.bare = true` is broken; report
