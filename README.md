@@ -56,7 +56,10 @@ export PATH="$HOME/.claude/plugins/marketplaces/wt/bin:$PATH"
   `<branch>` back at `origin/<branch>`. Refuses when the worktree is dirty or its commits
   exist nowhere else.
 
-`wt new` exits 3 when the repo still needs migrating, or when `.wt` is missing.
+`wt new` exits 3 when the repo still needs migrating, or when `.wt` is missing. `wt` with no
+arguments lists the commands, and `wt status` is the status line command described below.
+
+Before 0.8.0 these were separate scripts named `wt-new`, `wt-rm` and `wt-status`.
 
 ## Claude integration
 
@@ -77,7 +80,8 @@ them loses anything, and runs `wt rm` on the ones you pick.
 ## Status line
 
 `wt status` is a Claude Code status line for worktree sessions. `/wt:statusline` toggles it,
-and `/wt:statusline on` or `off` sets it.
+and `/wt:statusline on` or `off` sets it. A status line set up before 0.8.0 points at
+`bin/wt-status`, which no longer exists, so run `/wt:statusline on` again after updating.
 
 ```
 545 ~~> 562✓  +3 ↑2

@@ -22,6 +22,8 @@ ttl=60
 active_window=20
 cache_dir=${XDG_CACHE_HOME:-$HOME/.cache}/wt-status
 
+[[ -t 0 ]] && { print -u2 -- "wt status: reads Claude Code session JSON on stdin, for statusLine.command"; exit 2 }
+
 if [[ $1 == --refresh ]]; then
   dir=$2 branch=$3 out=$4; shift 4
   cd $dir || exit 1
