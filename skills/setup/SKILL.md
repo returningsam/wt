@@ -24,7 +24,9 @@ container=$(dirname "$root")
 ```
 
 The repo must already be in the layout: `$root` ends in `/main` and `$container/worktrees`
-exists. If it isn't, stop and tell the user to run `wt migrate`.
+exists. If it isn't, stop and tell the user to close editors and dev servers for the repo
+and exit Claude sessions in it, then run `cd $root && wt migrate` and reopen from
+`$root/main`.
 
 If git commands in `$root` fail with "must be run in a work tree", check
 `git -C $root config core.bare`. A main checkout with `core.bare = true` is broken; report
