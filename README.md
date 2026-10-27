@@ -57,9 +57,9 @@ export PATH="$HOME/.claude/plugins/marketplaces/wt/bin:$PATH"
   Then run `/wt:setup` to write `.wt`.
 
 `wt new` exits 3 when the repo still needs migrating, or when `.wt` is missing. `wt` with no
-arguments lists the commands, and `wt status` is the status line command described below.
+arguments lists the commands.
 
-Before 0.8.0 these were separate scripts named `wt-new`, `wt-rm` and `wt-status`. In 0.8.0,
+Before 0.8.0 these were separate scripts named `wt-new` and `wt-rm`. In 0.8.0,
 `wt migrate` was `wt new --migrate`.
 
 ## Claude integration
@@ -77,41 +77,6 @@ repo's project board from the boards its recent issues are on.
 
 The `clean` skill (`/wt:clean`) lists the repo's worktrees, sorts them by whether removing
 them loses anything, and runs `wt rm` on the ones you pick.
-
-## Status line
-
-`wt status` is a Claude Code status line for worktree sessions. `/wt:statusline` toggles it,
-and `/wt:statusline on` or `off` sets it. A status line set up before 0.8.0 points at
-`bin/wt-status`, which no longer exists, so run `/wt:statusline on` again after updating.
-
-```
-545 ~~> 562✓  +3 ↑2
-```
-
-Issues sit on the left and the PR on the right. The arrow between them is a JetBrains Mono
-ligature, and its stroke shows how far the work has gone:
-
-| arrow | state |
-|---|---|
-| `-\|` | not in a worktree |
-| `...` | nothing done yet |
-| `~~>` | uncommitted edits |
-| `-->` | commits not pushed |
-| `==>` | pushed, `main/` hasn't pulled |
-| `===` | pushed and pulled |
-
-The arrow turns yellow while files are changing. Each issue and PR number has GitHub's
-Octicon for its state in front of it, in GitHub's colors, and `✓` `✗` `·` are the PR's
-checks. The icons come from the Nerd Font symbols Ghostty bundles; other terminals need a
-Nerd Font. Issue and PR numbers are links. Issues come from `i<number>` in
-the branch name and from the PR's closing references. The `gh` lookups run in the
-background and are cached for 60 seconds in `~/.cache/wt-status`.
-
-Claude resets its shell to the project dir after every command, so a session started in
-`main/` never sits in the worktree it works on. When `wt new` runs inside a Claude session,
-it records the worktree under the session ID in `~/.cache/wt-status/sessions`, and the
-status line shows that worktree for the rest of the session, including after
-`claude --resume`. `wt rm` clears the record.
 
 ## Rules that keep `git pull` working
 
