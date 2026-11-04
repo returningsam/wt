@@ -30,8 +30,12 @@ Some parts of an issue can't be done in a PR: a dashboard setting, a CMS edit, a
 someone else owns. Call them out in the restatement and scope the run to the rest. If none of
 it can be done in a PR, stop and say so.
 
-**Claim the issue before §2, not after the PR.** Once the restatement holds and you're going
-to work the issue, move its item on the project board to the in-progress status straight away.
+**Claim the issue before §2, not after the PR.** The board is `wt.project` in the repo's
+`.wt` (`git config -f <container>/.wt wt.project`, where the container is the main
+checkout's parent), as `<owner>/<number>`. With no issue or no `wt.project`, skip the board
+steps here and in §5 and don't mention them anywhere. Otherwise, once the restatement holds
+and you're going to work the issue, move its item on that board to the in-progress status
+straight away.
 The board is how the user sees what's being worked on; a ticket sitting in `Todo` or `Needs
 info` while a worktree is running reads as unclaimed, and moving it only at the end defeats
 the point. Find the item with `gh project item-list <project> --owner <org> --format json`,
@@ -44,9 +48,9 @@ gh project item-edit --id <item> --project-id <proj> \
 ```
 
 Project, field and option IDs may already be in memory for this repo; otherwise read them off
-`gh project field-list <project> --owner <org> --format json`. If the issue isn't on a board,
-or nothing resembling an in-progress status exists, say so in one line and carry on — never
-stall the work over the board.
+`gh project field-list <project> --owner <org> --format json`. If the issue isn't on that
+board, nothing resembling an in-progress status exists, or the edit fails, keep it for the
+report and carry on. Never stall the work over the board.
 
 ## 2. Cut the worktree
 
@@ -127,14 +131,14 @@ with `gh pr view <branch> --json url -q .url`.
 - No prose paragraphs, no narrative summary, no restating the diff.
 - No "Test plan" section. No "lint/type-check/CI is green" filler. No diff stats (line
   counts, `+X / −Y`, files changed).
-- Keep `Closes #N`. If the PR leaves any part of the issue or request undone, use `Refs #N`
+- Keep `Closes #N` when there's an issue; with none, leave the trailer out. If the PR leaves any part of the issue or request undone, use `Refs #N`
   instead so merging doesn't close the issue. Never mention the reviews, the subagents, or this
   skill — the body describes the branch's current state only.
 - If it stacks on another branch, it builds "on top of that branch", never "that branch's tip".
 
 With the PR open, move the board item on from in-progress to whatever status means *awaiting
 review* (`Ready for review`, `In review`, …), using the same `item-edit` call as §1. Same
-caveat: if there's no such status, note it in a line and move on.
+caveat: if there's no such status or the edit fails, keep it for the report and move on.
 
 ## 6. Report
 
@@ -150,9 +154,11 @@ Then:
 - What the change does (a sentence or two), and which implementer tier did it.
 - What the reviews changed: findings applied, findings rejected + why.
 - Anything adjacent left alone deliberately, and any part of the issue a PR can't do.
-- The worktree path, still on disk, and that `git switch <branch> && git pull` in the main
-  checkout gets the work. Clean up with `wt rm <branch>` only if the user asks.
-- Where the issue's board item ended up, or why it couldn't be moved.
+- A board move that §1 or §5 couldn't make, and why.
+
+Leave out every line with nothing to say. Don't report an absent issue or board, a board move
+that went through, the worktree's path, or how to pull the branch; the user knows the layout.
+Leave the worktree on disk, and clean up with `wt rm <branch>` only if the user asks.
 
 ## Stops
 
