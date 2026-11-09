@@ -3,8 +3,9 @@ name: pr
 description: >
   Implement a GitHub issue or a described change (a bug fix, a feature, anything a PR can
   resolve) in an isolated git worktree, get independent subagent reviews before anything is
-  pushed, fold them in, then open an assigned PR. Use when the user invokes /wt:pr, or asks
-  to fix a bug or implement an issue in a worktree and PR it.
+  pushed, fold them in, then open an assigned PR with before/after screenshots when the UI
+  changes. Use when the user invokes /wt:pr, or asks to fix a bug or implement an issue in a
+  worktree and PR it.
 ---
 
 Implement an issue or change in a worktree, harden it against independent reviews, then open
@@ -12,8 +13,10 @@ the PR. Nothing leaves the machine until the findings are triaged and applied.
 
 **Authorization:** invoking this skill authorizes one local commit sequence on the worktree
 branch, one `git push` of it, one `gh pr create`, and the two status moves on the issue's
-project-board item described in §1 and §5. Nothing else — no other branch, no force-push after
-the PR exists, no merge, no writes to the original checkout, no other edit to the issue.
+project-board item described in §1 and §6. When the PR has visual changes, it also authorizes
+one push of the orphan `screenshots/<branch>` branch (§5). Nothing else — no other branch, no
+force-push after the PR exists, no merge, no writes to the original checkout, no other edit to
+the issue.
 
 ## 1. Resolve the issue, then claim it
 
@@ -24,7 +27,7 @@ Restate the work in a sentence. For a bug, that's observed vs. expected and wher
 lives. For anything else, it's what changes and where. Ask **before** cutting the worktree if
 it's a wishlist of several problems, two readings give different diffs, a feature has more
 than one reasonable approach, or the spec is out of reach (a private Figma link, say). Keep
-the issue number for the `Closes #N` or `Refs #N` trailer (§5).
+the issue number for the `Closes #N` or `Refs #N` trailer (§6).
 
 Some parts of an issue can't be done in a PR: a dashboard setting, a CMS edit, a decision
 someone else owns. Call them out in the restatement and scope the run to the rest. If none of
@@ -33,7 +36,7 @@ it can be done in a PR, stop and say so.
 **Claim the issue before §2, not after the PR.** The board is `wt.project` in the repo's
 `.wt` (`git config -f <container>/.wt wt.project`, where the container is the main
 checkout's parent), as `<owner>/<number>`. With no issue or no `wt.project`, skip the board
-steps here and in §5 and don't mention them anywhere. Otherwise, once the restatement holds
+steps here and in §6 and don't mention them anywhere. Otherwise, once the restatement holds
 and you're going to work the issue, move its item on that board to the in-progress status
 straight away.
 The board is how the user sees what's being worked on; a ticket sitting in `Todo` or `Needs
@@ -94,7 +97,7 @@ When it returns, check its work rather than its summary: `git log <base>..HEAD` 
 commit, and verification passes when you run it yourself. If it stopped instead (no real
 defect, the code already does it, the scope grew), relay that and stop the run. If its result
 is wrong or incomplete, spawn it again with what's missing, one tier higher if the miss looks
-like the work was harder than you judged. Keep the adjacent problems it noted for §6.
+like the work was harder than you judged. Keep the adjacent problems it noted for §7.
 
 ## 4. Review — before anything is published
 
@@ -107,20 +110,75 @@ Invoke the **herd-review** skill (`Skill(skill: "herd-review")`) on the worktree
 
 It reads the change, sizes the review to its risk, spawns read-only reviewers, triages the
 merged findings against the code, and applies the confirmed ones. Keep its list of applied and
-rejected findings for §6.
+rejected findings for §7.
 
 Re-run verification after the findings land, then add one clean commit for them. Never amend,
 rebase, or reset committed work — the user may have pulled it, and rewritten history breaks
 their `git pull`.
 
-## 5. Open the PR
+## 5. Screenshots
+
+Run this after the review findings are committed, so the after shots show the final state.
+It applies when the diff changes rendered UI: web pages, components, native app screens.
+Backend, CLI, docs, config, and refactors with no rendered difference skip this section, and
+neither the PR body nor the report mentions screenshots.
+
+**Enumerate from the diff.** Each distinct visual change gets one row. When the same change
+repeats across many screens, show one representative screen and name the others in the row's
+label. Cover the states the diff touches (hover or focus, error, empty, loading, a mobile
+breakpoint, dark mode) when the change looks different there. Don't add states the change
+doesn't affect.
+
+**Capture.** Run the app from the worktree on a free port. Never use the main checkout's dev
+server, and never edit `main/` to get one. Use whatever browser tooling the session has
+(Playwright, a browser or preview tool), and the session's device tools for an iOS or Android
+simulator. Keep the viewport, data, and scroll position the same within each before/after
+pair. Frame each shot on the change (the viewport or the element). Take a full-page capture
+only when the change is page-wide.
+
+Take the after shots on `wt/<branch>` first. For the before shots, with the tree clean:
+
+```bash
+git checkout --detach "$(git merge-base origin/<base> HEAD)"
+# reinstall deps if the lockfile differs, capture, then:
+git checkout wt/<branch>
+git status -sb
+```
+
+A checkout doesn't rewrite history, so the no-reset rule still holds, but the run must end on
+`wt/<branch>`. Confirm it before going on.
+
+Save the PNGs outside the worktree (the session scratchpad or a temp dir), never in the PR
+branch, as `NN-<slug>-before.png` and `NN-<slug>-after.png`.
+
+**Push them to an orphan branch.** Git plumbing builds the commit without touching the
+worktree:
+
+```bash
+dir=<the screenshots dir>
+tree=$(for f in "$dir"/*.png; do
+  printf '100644 blob %s\t%s\n' "$(git hash-object -w "$f")" "$(basename "$f")"
+done | git mktree)
+commit=$(git commit-tree "$tree" -m "screenshots for <branch>")
+git push origin "${commit}:refs/heads/screenshots/<branch>"
+```
+
+Keep the braces in `${commit}`; zsh reads `$commit:r` as a modifier. Each image's URL is
+`https://github.com/<owner>/<repo>/raw/<commit>/<file>`, with `<owner>/<repo>` from
+`gh repo view --json nameWithOwner -q .nameWithOwner`. Pinning to the commit SHA keeps the
+links stable, and `/raw/` URLs render for logged-in viewers of a private repo.
+
+If capture can't be done (the app won't start, or it needs credentials or seed data the run
+doesn't have), don't stall. Open the PR without the missing rows and list them in the report.
+
+## 6. Open the PR
 
 ```bash
 git push origin HEAD:<branch>   # wt/<branch> → origin/<branch>; always name the target
 gh pr create --head <branch> --base <base> --assignee @me --title "…" --body "…"
 ```
 
-`gh pr create` prints the PR URL as its last line. Keep it for §6; if it got lost, recover it
+`gh pr create` prints the PR URL as its last line. Keep it for §7; if it got lost, recover it
 with `gh pr view <branch> --json url -q .url`.
 
 `--assignee @me` is required. Description rules (standing user preferences):
@@ -135,12 +193,16 @@ with `gh pr view <branch> --json url -q .url`.
   instead so merging doesn't close the issue. Never mention the reviews, the subagents, or this
   skill — the body describes the branch's current state only.
 - If it stacks on another branch, it builds "on top of that branch", never "that branch's tip".
+- With screenshots from §5, end the body with a `### Screenshots` table, the one exception to
+  the terse-bullets rule. Columns are a short label for the screen and state (naming the other
+  screens when it's representative), Before, and After, with images as `![](url)`. A new
+  screen puts "None" in the Before cell; a removed one puts "Removed" in the After cell.
 
 With the PR open, move the board item on from in-progress to whatever status means *awaiting
 review* (`Ready for review`, `In review`, …), using the same `item-edit` call as §1. Same
 caveat: if there's no such status or the edit fails, keep it for the report and move on.
 
-## 6. Report
+## 7. Report
 
 The report's first line is always the PR link, with the full URL as both text and target:
 
@@ -154,7 +216,8 @@ Then:
 - What the change does (a sentence or two), and which implementer tier did it.
 - What the reviews changed: findings applied, findings rejected + why.
 - Anything adjacent left alone deliberately, and any part of the issue a PR can't do.
-- A board move that §1 or §5 couldn't make, and why.
+- A board move that §1 or §6 couldn't make, and why.
+- Any screenshot §5 couldn't capture, and why.
 
 Leave out every line with nothing to say. Don't report an absent issue or board, a board move
 that went through, the worktree's path, or how to pull the branch; the user knows the layout.
