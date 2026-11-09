@@ -129,24 +129,21 @@ label. Cover the states the diff touches (hover or focus, error, empty, loading,
 breakpoint, dark mode) when the change looks different there. Don't add states the change
 doesn't affect.
 
-**Capture.** Run the app from the worktree on a free port. Never use the main checkout's dev
-server, and never edit `main/` to get one. Use whatever browser tooling the session has
-(Playwright, a browser or preview tool), and the session's device tools for an iOS or Android
-simulator. Keep the viewport, data, and scroll position the same within each before/after
-pair. Frame each shot on the change (the viewport or the element). Take a full-page capture
-only when the change is page-wide.
-
-Take the after shots on `wt/<branch>` first. For the before shots, with the tree clean:
+**Capture from the main checkout.** The user runs the dev environment in `main/`. Never start
+a dev server or app yourself, and never run git in `main/`. Ask the user (`AskUserQuestion`)
+twice, once per state. Each time, give them the commands to run in `main/`, ask them to start
+the dev environment, and ask for the URL or screen to capture from:
 
 ```bash
-git checkout --detach "$(git merge-base origin/<base> HEAD)"
-# reinstall deps if the lockfile differs, capture, then:
-git checkout wt/<branch>
-git status -sb
+git switch --detach <merge-base SHA>   # before: git merge-base origin/<base> HEAD
+git switch <branch> && git pull        # after: <branch> tracks wt/<branch>
 ```
 
-A checkout doesn't rewrite history, so the no-reset rule still holds, but the run must end on
-`wt/<branch>`. Confirm it before going on.
+Take every before shot, then ask for the after state. Use whatever browser tooling the
+session has (Playwright, a browser or preview tool), and the session's device tools for an
+iOS or Android simulator. Keep the viewport, data, and scroll position the same within each
+before/after pair. Frame each shot on the change (the viewport or the element). Take a
+full-page capture only when the change is page-wide.
 
 Save the PNGs outside the worktree (the session scratchpad or a temp dir), never in the PR
 branch, as `NN-<slug>-before.png` and `NN-<slug>-after.png`.
@@ -168,8 +165,9 @@ Keep the braces in `${commit}`; zsh reads `$commit:r` as a modifier. Each image'
 `gh repo view --json nameWithOwner -q .nameWithOwner`. Pinning to the commit SHA keeps the
 links stable, and `/raw/` URLs render for logged-in viewers of a private repo.
 
-If capture can't be done (the app won't start, or it needs credentials or seed data the run
-doesn't have), don't stall. Open the PR without the missing rows and list them in the report.
+If capture can't be done (the user can't run the dev environment now, or a state needs
+credentials or seed data they don't have), don't stall. Open the PR without the missing rows
+and list them in the report.
 
 ## 6. Open the PR
 
