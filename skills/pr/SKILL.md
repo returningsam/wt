@@ -14,8 +14,8 @@ the PR. Nothing leaves the machine until the findings are triaged and applied.
 **Authorization:** invoking this skill authorizes one local commit sequence on the worktree
 branch, one `git push` of it, one `gh pr create`, and the two status moves on the issue's
 project-board item described in §1 and §6. When the PR has visual changes, it also authorizes
-uploading the screenshots as attachments on that PR with `--attach`, and the follow-up
-`gh pr edit` of its body (§6). Nothing else — no other branch, no force-push after the PR
+uploading the screenshots as attachments on that PR with `--attach`, and the `gh pr edit`
+calls on its body that §6 describes. Nothing else — no other branch, no force-push after the PR
 exists, no merge, no writes to the original checkout, no other edit to the issue.
 
 ## 1. Resolve the issue, then claim it
@@ -203,54 +203,59 @@ Before uploading, resize each image to the width §6 gives it (`magick in.png -r
 out.png`) and look at each pair. If you can't tell them apart, the change needs a tighter
 close-up or an annotation.
 
-**Write the PR body into the same directory**, as `<dir>/body.md`, so the `./NN-…png` paths
-in its table (§6) resolve. §6 uploads the PNGs with `--attach`, which stores each as a GitHub
-user attachment on the PR, the same as dragging it into the PR editor. On a private repo only
-people with repo access can see them, and there's no branch to clean up. Uploads can't be
-deleted, so attach only the final shots.
-
 If capture can't be done (the user can't run the dev environment now, or a state needs
 credentials or seed data they don't have), don't stall. Open the PR without the missing rows
-and list them in the report. If an upload fails, gh still opens or updates the PR with the
-uploads that worked, exits non-zero, and prints the PR URL. Drop the rows whose images are
-missing and report them. It doesn't count as a Stops failure.
+and list them in the report.
 
 ## 6. Open the PR
 
 ```bash
 git push origin HEAD:<branch>   # wt/<branch> → origin/<branch>; always name the target
+```
+
+Write the body by the rules below, then run one `gh pr create`. Without screenshots:
+
+```bash
 gh pr create --head <branch> --base <base> --assignee @me --title "…" --body "…"
 ```
 
-With screenshots from §5, pass the body file and attach every PNG instead of `--body`:
+With screenshots, write the body to `body.md` in the §5 directory so the table's `./NN-…png`
+paths resolve, and attach the PNGs the table references. gh uploads each one as a GitHub user
+attachment, the same as dragging it into the PR editor. On a private repo only people with
+repo access can see them, and there's no branch to clean up. Uploads can't be deleted, so the
+list comes from the table, not the whole directory:
 
 ```bash
-attach=(); for f in "$dir"/*.png; do attach+=(--attach "$f"); done
+dir=<the screenshots dir>
+attach=(); for f in $(grep -oE '\./[^)]+\.png' "$dir/body.md" | sort -u); do
+  attach+=(--attach "$dir/${f#./}"); done
 gh pr create --head <branch> --base <base> --assignee @me --title "…" \
   --body-file "$dir/body.md" "${attach[@]}"
 ```
 
-gh replaces each `./NN-…png` link with the uploaded URL and keeps the alt text. It only
-rewrites markdown images, so the widths stay in the alt text until you convert them to `<img>`
-tags. Before saving the body, check that no local path or `![<digits>](` is left. A leftover
-`./` path is a failed upload, so drop its row (§5):
+`gh pr create` prints the PR URL as its last line. Keep it for the steps below and §7; if it
+got lost, recover it with `gh pr view <branch> --json url -q .url`. With `--attach`, a
+non-zero exit that still prints a URL means an upload failed. gh skips every file after the
+first failure, and the next step finds them.
+
+gh replaces each `./NN-…png` path with the uploaded URL and keeps the alt text, but it only
+rewrites markdown images. Convert them to `<img>` tags so the widths hold. Write to a second
+file, so a failed read can't blank the PR body:
 
 ```bash
 gh pr view <url> --json body -q .body \
   | perl -pe 's/!\[(\d+)\]\((https:\/\/github\.com\/user-attachments\/assets\/[^)\s]+)\)/<img src="$2" width="$1">/g' \
-  > "$dir/body.md"
-grep -nE '\]\(\./|!\[[0-9]+\]\(' "$dir/body.md"   # must print nothing
-gh pr edit <url> --body-file "$dir/body.md"
+  > "$dir/body.out.md"
+test -s "$dir/body.out.md" && ! grep -nE '\]\(\./[^)]*\.png|!\[[0-9]+\]\(' "$dir/body.out.md" \
+  && gh pr edit <url> --body-file "$dir/body.out.md"
 ```
 
-gh takes 50 files per command. With more, attach the first 50 at create, then read the body
-back into `$dir/body.md` and run `gh pr edit <url> --body-file "$dir/body.md"` with the rest
-attached before converting. A later pass that retakes screenshots works the same way: update
-the table in `$dir/body.md`, run `gh pr edit` with the body file and the new PNGs attached,
-then convert.
-
-`gh pr create` prints the PR URL as its last line. Keep it for §7; if it got lost, recover it
-with `gh pr view <branch> --json url -q .url`.
+If the grep prints `./` paths, those files didn't upload. Run
+`gh pr edit <url> --body-file "$dir/body.out.md"` once with them attached, then run the
+conversion again. If they still fail, delete their rows from `body.out.md` (the whole row
+when either image is missing), run the edit, and list them in the report. A failed upload
+doesn't count as a Stops failure. gh accepts at most 50 `--attach` files per command. With
+more, attach the first 50 at create, and the rest go up through the same retry.
 
 `--assignee @me` is required. Description rules (standing user preferences):
 
@@ -302,7 +307,7 @@ Then:
 - What the reviews changed: findings applied, findings rejected + why.
 - Anything adjacent left alone deliberately, and any part of the issue a PR can't do.
 - A board move that §1 or §6 couldn't make, and why.
-- Any screenshot §5 couldn't capture or upload, and why.
+- Any screenshot §5 couldn't capture or upload, and why, including a gh too old for `--attach`.
 
 Leave out every line with nothing to say. Don't report an absent issue or board, a board move
 that went through, the worktree's path, or how to pull the branch; the user knows the layout.
