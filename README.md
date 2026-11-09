@@ -73,7 +73,9 @@ to `origin/<branch>`. It hands the implementation to one of the plugin's `implem
 agents, all on Opus, picking `medium`, `high`, or `xhigh` effort from how hard the work looks.
 When the change is visual, it asks you to start the dev environment in `main/` on the before
 and then the after state, captures screenshots of each, pushes them to an orphan
-`screenshots/<branch>` branch, and adds a before/after table to the PR body.
+`screenshots/<branch>` branch, and adds a before/after table to the PR body. A pixel diff
+finds each change, and a cropped, annotated close-up keeps a small change visible at table
+size.
 
 The `setup` skill (`/wt:setup`) writes or updates `.wt`. It suggests a name and finds the
 repo's project board from the boards its recent issues are on.
