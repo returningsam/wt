@@ -60,7 +60,8 @@ report and carry on. Never stall the work over the board.
 Base branch = the integration branch CLAUDE.md names (e.g. a `staging` release gate), else
 `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`.
 
-Branch name: match existing convention (`git branch -r --sort=-committerdate | head -20`) —
+Branch name: match existing convention
+(`git branch -r --sort=-committerdate | grep -v /screenshots/ | head -20`) —
 usually `<type>/i<issue>-<slug>`, where the type (`fix`, `feat`, `chore`, …) matches the work
 and the repo's existing branches. Create the worktree with
 `wt new --base origin/<base> <branch>` (not `EnterWorktree`). It prints the worktree path as its
@@ -145,29 +146,37 @@ iOS or Android simulator. Keep the viewport, data, and scroll position the same 
 before/after pair. Frame each shot on the change (the viewport or the element). Take a
 full-page capture only when the change is page-wide.
 
-Save the PNGs outside the worktree (the session scratchpad or a temp dir), never in the PR
-branch, as `NN-<slug>-before.png` and `NN-<slug>-after.png`.
+Save the PNGs in a fresh directory outside the worktree (`mktemp -d`) that holds only these
+shots, never in the PR branch, as `NN-<slug>-before.png` and `NN-<slug>-after.png`.
 
 **Push them to an orphan branch.** Git plumbing builds the commit without touching the
-worktree:
+worktree. When the branch already exists from an earlier pass, the new commit builds on top
+of it, so the push stays a fast-forward and older links keep working:
 
 ```bash
 dir=<the screenshots dir>
+ref=refs/heads/screenshots/<branch>
 tree=$(for f in "$dir"/*.png; do
   printf '100644 blob %s\t%s\n' "$(git hash-object -w "$f")" "$(basename "$f")"
 done | git mktree)
-commit=$(git commit-tree "$tree" -m "screenshots for <branch>")
-git push origin "${commit}:refs/heads/screenshots/<branch>"
+git fetch -q origin "+${ref}:refs/remotes/origin/screenshots/<branch>" 2>/dev/null
+parent=$(git rev-parse -q --verify refs/remotes/origin/screenshots/<branch>)
+commit=$(git commit-tree "$tree" ${parent:+-p} $parent -m "screenshots for <branch> [skip ci]")
+git ls-tree --name-only "$commit"   # must list every PNG before you push
+git push origin "${commit}:${ref}"
 ```
 
-Keep the braces in `${commit}`; zsh reads `$commit:r` as a modifier. Each image's URL is
+Keep the braces in `${commit}`; zsh reads `$commit:r` as a modifier. `[skip ci]` keeps push
+workflows from running on a branch with no code. Each image's URL is
 `https://github.com/<owner>/<repo>/raw/<commit>/<file>`, with `<owner>/<repo>` from
 `gh repo view --json nameWithOwner -q .nameWithOwner`. Pinning to the commit SHA keeps the
-links stable, and `/raw/` URLs render for logged-in viewers of a private repo.
+links stable, and `/raw/` URLs render for logged-in viewers of a private repo. Leave the
+branch in place after merge, since the PR's images point at it.
 
 If capture can't be done (the user can't run the dev environment now, or a state needs
 credentials or seed data they don't have), don't stall. Open the PR without the missing rows
-and list them in the report.
+and list them in the report. If the screenshots push fails, open the PR without the table and
+report that too. It doesn't count as a Stops failure.
 
 ## 6. Open the PR
 
@@ -191,10 +200,17 @@ with `gh pr view <branch> --json url -q .url`.
   instead so merging doesn't close the issue. Never mention the reviews, the subagents, or this
   skill — the body describes the branch's current state only.
 - If it stacks on another branch, it builds "on top of that branch", never "that branch's tip".
-- With screenshots from §5, end the body with a `### Screenshots` table, the one exception to
-  the terse-bullets rule. Columns are a short label for the screen and state (naming the other
-  screens when it's representative), Before, and After, with images as `![](url)`. A new
-  screen puts "None" in the Before cell; a removed one puts "Removed" in the After cell.
+- With screenshots from §5, add a `### Screenshots` table after the other sections and before
+  the `Closes`/`Refs` line. It's the one exception to the terse-bullets rule. Columns are a
+  short label for the screen and state (naming the other screens when it's representative),
+  Before, and After. A new screen puts "None" in the Before cell; a removed one puts
+  "Removed" in the After cell:
+
+  ```
+  | Screen | Before | After |
+  |---|---|---|
+  | Settings, dark mode (same on Profile, Billing) | ![](url) | ![](url) |
+  ```
 
 With the PR open, move the board item on from in-progress to whatever status means *awaiting
 review* (`Ready for review`, `In review`, …), using the same `item-edit` call as §1. Same
@@ -215,7 +231,7 @@ Then:
 - What the reviews changed: findings applied, findings rejected + why.
 - Anything adjacent left alone deliberately, and any part of the issue a PR can't do.
 - A board move that §1 or §6 couldn't make, and why.
-- Any screenshot §5 couldn't capture, and why.
+- Any screenshot §5 couldn't capture or push, and why.
 
 Leave out every line with nothing to say. Don't report an absent issue or board, a board move
 that went through, the worktree's path, or how to pull the branch; the user knows the layout.
