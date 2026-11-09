@@ -128,7 +128,8 @@ neither the PR body nor the report mentions screenshots.
 repeats across many screens, show one representative screen and name the others in the row's
 label. Cover the states the diff touches (hover or focus, error, empty, loading, a mobile
 breakpoint, dark mode) when the change looks different there. Don't add states the change
-doesn't affect.
+doesn't affect. Some screens only appear after an interaction (a button press, an open modal,
+a form error). List those from the diff and the PR description, with the steps to reach them.
 
 **Capture from the main checkout.** The user runs the dev environment in `main/`. Never start
 a dev server or app yourself, and never run git in `main/`. Ask the user (`AskUserQuestion`)
@@ -142,12 +143,55 @@ git switch <branch> && git pull        # after: <branch> tracks wt/<branch>
 
 Take every before shot, then ask for the after state. Use whatever browser tooling the
 session has (Playwright, a browser or preview tool), and the session's device tools for an
-iOS or Android simulator. Keep the viewport, data, and scroll position the same within each
-before/after pair. Frame each shot on the change (the viewport or the element). Take a
-full-page capture only when the change is page-wide.
+iOS or Android simulator. Capture at the screen's native size with a device pixel ratio of
+1, reduced motion on, and wait for images, fonts, and animations to settle before each shot.
+Keep the viewport, data, and scroll position the same within each before/after pair. Take
+the viewport, not a full-page scroll, unless the change is page-wide.
 
 Save the PNGs in a fresh directory outside the worktree (`mktemp -d`) that holds only these
 shots, never in the PR branch, as `NN-<slug>-before.png` and `NN-<slug>-after.png`.
+
+**Confirm each change with a pixel diff.** Compare every pair with ImageMagick:
+
+```bash
+magick compare -metric AE -fuzz 3% before.png after.png null: 2>&1   # differing pixels
+```
+
+`magick compare` exits 1 when the images differ, so don't chain it with `&&`.
+
+Carousels, loading images, video, and animation also produce differences. Take the before set
+twice, and treat any screen that differs between those two runs as noise. Every remaining
+difference should match something in the diff. Report one that doesn't, rather than dropping
+it. A screen the diff should change that shows no difference means the capture is wrong (a
+stale build, the wrong state), so fix that before going on.
+
+**Make each change visible at table size.** The PR table shrinks images to about a quarter of
+their size, so a 20px shift renders as 5px and the pair looks identical. Give every row a
+close-up, unless the change is obvious in the full shot at its embedded width (a new screen,
+a large layout change). A close-up crops the pixel-diff box at 1:1 with at least 40px of
+padding, using the same crop on both images. When the change is a position or alignment,
+widen the crop to include the reference it moved against, such as the container edge or the
+centre.
+
+```bash
+magick compare -fuzz 3% -compose src -highlight-color white -lowlight-color black \
+  before.png after.png mask.png
+magick mask.png -fuzz 10% -format '%@' info:   # diff box as WxH+X+Y
+magick before.png -crop <W>x<H>+<X>+<Y> +repage NN-<slug>-before-close.png
+```
+
+Annotate a subtle change, meaning the diff box covers under about 5% of the frame or the
+change moves under about 10px at the embedded width. Draw the same guide on both close-ups: a
+line at the reference for a position change, an outline around the diff box otherwise.
+
+```bash
+magick in.png -stroke '#ff2d55' -strokewidth 2 -fill none -draw 'line 540,0 540,520' out.png
+magick in.png -stroke '#ff2d55' -strokewidth 2 -fill none -draw 'rectangle 10,10 300,80' out.png
+```
+
+Before pushing, resize each pair to its embedded width (`magick in.png -resize 420x out.png`)
+and look at both images. If you can't tell them apart, the row needs a tighter close-up or an
+annotation.
 
 **Push them to an orphan branch.** Git plumbing builds the commit without touching the
 worktree. When the branch already exists from an earlier pass, the new commit builds on top
@@ -201,15 +245,21 @@ with `gh pr view <branch> --json url -q .url`.
   skill — the body describes the branch's current state only.
 - If it stacks on another branch, it builds "on top of that branch", never "that branch's tip".
 - With screenshots from §5, add a `### Screenshots` table after the other sections and before
-  the `Closes`/`Refs` line. It's the one exception to the terse-bullets rule. Columns are a
-  short label for the screen and state (naming the other screens when it's representative),
-  Before, and After. A new screen puts "None" in the Before cell; a removed one puts
-  "Removed" in the After cell:
+  the `Closes`/`Refs` line. It's the one exception to the terse-bullets rule. Open it with one
+  line naming the before and after commits. Columns are a short label for the screen and state
+  (naming the other screens when it's representative), Before, and After. A close-up row
+  follows its full-shot row. A new screen puts "None" in the Before cell; a removed one puts
+  "Removed" in the After cell. Give every image an explicit width: 300 for a portrait full
+  shot, 420 for a landscape one, and at least 440 for a close-up (its natural width when
+  that's under about 880):
 
   ```
+  Before `f02ef8c`, after `2feee98`.
+
   | Screen | Before | After |
   |---|---|---|
-  | Settings, dark mode (same on Profile, Billing) | ![](url) | ![](url) |
+  | Settings, dark mode (same on Profile, Billing) | <img src="url" width="420"> | <img src="url" width="420"> |
+  | Settings, close-up | <img src="url" width="440"> | <img src="url" width="440"> |
   ```
 
 With the PR open, move the board item on from in-progress to whatever status means *awaiting
