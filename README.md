@@ -55,6 +55,15 @@ export PATH="$HOME/.claude/plugins/marketplaces/wt/bin:$PATH"
   worktrees and moves Claude's per-project history to the new path. Run it with the editor and
   dev servers closed; it moves the repo out from under anything open on it.
   Then run `/wt:setup` to write `.wt`.
+- `wt shots-diff [--noise <dir>] [--crops <file>] [--removed <screen>] <before-dir> <after-dir> <out-dir>`: pairs
+  before and after screenshots by file name, counts the pixels that differ, and writes a PR
+  table's images to `<out-dir>`. Each changed screen gets a full shot and a padded close-up of
+  each changed region, a draft of the table's rows in `rows.md`, and a contact sheet per screen.
+  `--crops` gives close-ups by hand, and `--removed` adds a row for a screen the change removes.
+  Needs ImageMagick 7.
+- `wt shots-attach <pr-url> <dir>`: uploads the screenshots `<dir>/body.md` names as PR
+  attachments, turns them into `<img>` tags, and makes the file the PR's body. Needs gh 2.99.0
+  or later.
 
 `wt new` exits 3 when the repo still needs migrating, or when `.wt` is missing. `wt` with no
 arguments lists the commands.

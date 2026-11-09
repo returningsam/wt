@@ -4,6 +4,9 @@
 #   new [--base <ref>] <branch>      create a worktree on wt/<branch>
 #   rm [--force] <branch | path>     remove a worktree and its wt/ branch
 #   migrate                          move a repo into the main/ + worktrees/ layout
+#   shots-diff [--noise <dir>] [--crops <file>] [--removed <screen>] <before> <after> <out>
+#                                    PR screenshot rows from before/after PNGs
+#   shots-attach <pr-url> <dir>      upload <dir>/body.md's screenshots and publish it
 
 self=$0:A
 usage() { sed -n '2,/^$/s/^# \{0,1\}//p' $self }

@@ -16,7 +16,8 @@ branch, one `git push` of it, one `gh pr create`, and the two status moves on th
 project-board item described in §1 and §6. When the PR has visual changes, it also authorizes
 uploading the screenshots as attachments on that PR with `--attach`, and the `gh pr edit`
 calls on its body that §6 describes. Nothing else — no other branch, no force-push after the PR
-exists, no merge, no writes to the original checkout, no other edit to the issue.
+exists, no merge, no writes to the original checkout (apart from the `git switch` and `git pull`
+§5 runs there when the user has said it may), no other edit to the issue.
 
 ## 1. Resolve the issue, then claim it
 
@@ -135,73 +136,91 @@ doesn't affect. Some screens only appear after an interaction (a button press, a
 a form error). List those from the diff and the PR description, with the steps to reach them.
 
 **Capture from the main checkout.** The user runs the dev environment in `main/`. Never start
-a dev server or app yourself, and never run git in `main/`. Ask the user (`AskUserQuestion`)
-twice, once per state. Each time, give them the commands to run in `main/`, ask them to start
-the dev environment, and ask for the URL or screen to capture from:
+a dev server or app yourself. Work out both SHAs with commands, never from memory. The after
+state is the worktree's `HEAD` (for a PR that's already open, `gh pr view <n> --json
+headRefOid,baseRefName`). The before state is `git merge-base origin/<base> <after>`, run after
+`git fetch origin <base>` so a stale ref doesn't move it. The only git command you run in
+`main/` on your own is the read-only `git -C <main> rev-parse HEAD`. If the user has said you
+may switch and pull there yourself, run the commands below. Otherwise ask the user
+(`AskUserQuestion`) once per state that still needs capturing, give them the commands to run
+in `main/`, and ask them to start the dev environment and name the URL or screen to capture
+from:
 
 ```bash
-git switch --detach <merge-base SHA>   # before: git merge-base origin/<base> HEAD
+git switch --detach <merge-base SHA>   # before
 git switch <branch> && git pull        # after: <branch> tracks wt/<branch>
 ```
 
-Take every before shot twice, then ask for the after state. The second before set is the
-noise baseline. Use whatever browser tooling the session has (Playwright, a browser or
-preview tool), and the session's device tools for an iOS or Android simulator. In a browser,
-capture at the screen's native size with a device pixel ratio of 1. A simulator's own
-screenshot size is fine as it is. Turn reduced motion on, and wait for images, fonts, and
-animations to settle before each shot. Keep the viewport, data, and scroll position the same
-within each before/after pair. Take the viewport, not a full-page scroll, unless the change
-is page-wide.
+Before each capture run, check that `git -C <main> rev-parse HEAD` is the SHA you expect. A
+dev server that's still rebuilding after a switch can serve the old build, so reload and retry
+once when the first load fails or looks wrong.
 
-Save the PNGs in a fresh directory outside the worktree (`mktemp -d`) that holds only these
-shots, never in the PR branch, as `NN-<slug>-before.png` and `NN-<slug>-after.png`.
+**Use the repo's capture script when it has one.** Look for one in CLAUDE.md, AGENTS.md or
+the task runner (for example `mise run shots`). It knows how to reach each screen and state,
+which is the slow part to work out per PR. Otherwise use whatever browser tooling the session
+has (Playwright, a browser or preview tool), and the session's device tools for an iOS or
+Android simulator. In a browser, capture at the screen's native size with a device pixel
+ratio of 1. A simulator's own screenshot size is fine as it is. Turn reduced motion on, pause
+videos at their first frame, and wait for images and fonts. Then take a screenshot every
+400ms or so and keep the first one that matches the shot before it, rather than waiting a
+fixed time. Keep the viewport, data, and scroll position the same within each before/after
+pair, and give every run fresh app state (a new session, account or location) when the app
+keeps state between runs. Take the viewport, not a full-page scroll, unless the change is
+page-wide.
 
-**Confirm each change with a pixel diff.** Check that each pair has the same dimensions
-(`magick identify`), since `compare` on mismatched sizes prints a number without failing.
-Then compare every pair, and every before pair against its second run, with ImageMagick:
+**Cache the before shots by SHA.** Name each shot for its screen and state alone
+(`center-12.1.png`, `settings-dark.png`) and keep the before set in
+`~/.cache/wt-shots/<repo>/<merge-base SHA>/`. Several PRs from one base (a batch of branches
+cut from the same `main`) share it. Capture the union of what they need once, and reuse it.
+Whenever you add a screen to a SHA's folder, take it a second time into `<SHA>-noise/` as its
+noise baseline. After that, a PR needs only its after run, in a fresh `mktemp -d` outside the
+worktree.
 
-```bash
-magick compare -metric AE -fuzz 3% before.png after.png null: 2>&1   # differing pixels
-```
-
-It prints the count of differing pixels, and 0 means identical. It exits 1 when the images
-differ, so don't chain it with `&&`. A screen whose two before runs differ has noise
-(carousels, loading images, video, animation). Settle longer or mask the moving area and
-retake it. If it stays noisy, list it in the report as unverified. Every remaining difference
-should match something in the diff. List one that doesn't in the report rather than dropping
-it. A screen the diff should change that shows 0 means the capture is wrong (a stale build,
-the wrong state), so fix that before going on.
-
-**Make each change visible at table size.** The PR table shrinks a full shot to about a
-quarter of its size, so a 20px shift renders as 5px and the pair looks identical. Give every
-change a close-up row, unless it's obvious in the full shot at its embedded width (a new
-screen, a large layout change). A close-up is a 1:1 crop of the pixel-diff box, the same crop
-on both images. Pad the box by 40px on each side (X-40, Y-40, W+80, H+80, kept inside the
-image). For a position or alignment change, widen it to take in the reference the change
-moved against, such as the container edge or the centre. If the box covers more than about
-a third of the frame, it's holding two changes or stray noise. Crop each change separately,
-one close-up row each.
+**Confirm each change and make it visible with `wt shots-diff`.** It pairs each after shot
+with the before shot of the same name, checks their sizes, counts differing pixels between
+them and against the noise baseline, and writes the table's images and a draft of its rows
+into `<out-dir>`. Make that another fresh `mktemp -d` outside the worktree, never in the PR
+branch:
 
 ```bash
-magick compare -fuzz 3% -compose src -highlight-color white -lowlight-color black \
-  before.png after.png mask.png
-magick mask.png -fuzz 10% -format '%@' info:   # diff box as WxH+X+Y
-magick before.png -crop <W>x<H>+<X>+<Y> +repage NN-<slug>-before-close.png
+wt shots-diff --noise <cache>/<SHA>-noise <cache>/<SHA> <after-dir> <out-dir>
 ```
 
-Annotate every position or alignment change with a line at its reference. Annotate any other
-change whose diff box covers under about 5% of the full frame with an outline around the box.
-Draw the same guide on both close-ups. Coordinates are relative to the crop, so subtract the
-crop's X and Y from frame coordinates:
+It prints one line per screen, and `no change` for a pair that matches. A screen whose noise
+count isn't 0 has something moving (carousels, loading images, video, animation): settle it or
+mask it and retake it, and if it stays noisy, list it in the report as unverified.
+`noise=n/a` means the baseline has no copy of that screen yet, so take one. A screen only the
+after set has gets "None" in its before cell. Before-only screens are left out, since the
+cache holds other PRs' screens, so name a screen the PR really removes with
+`--removed <screen>`. Every remaining
+difference should match something in the diff. List one that doesn't in the report rather
+than dropping it. A screen the diff should change that shows no change means the capture is
+wrong (a stale build, the wrong state), so fix that before going on.
 
-```bash
-magick in.png -stroke '#ff2d55' -strokewidth 2 -fill none -draw 'line <x>,0 <x>,<H>' out.png
-magick in.png -stroke '#ff2d55' -strokewidth 2 -fill none -draw 'rectangle <x0>,<y0> <x1>,<y1>' out.png
+The PR table shrinks a full shot to about a quarter of its size, so a 20px shift renders as
+5px and the pair looks identical. For each changed screen, `wt shots-diff` writes the full
+shot and one 1:1 close-up per changed region, the same crop on both images, padded by 40px
+and kept inside the image. It outlines any region under about 5% of the frame. It flags a
+close-up that covers more than about a third of the frame, which means two changes or stray
+noise. A screen with more than six regions (a layout shift moves everything below it) gets
+no close-ups of its own. Close-ups are named `NN-<screen>-<k>-before-close.png`.
+
+It also writes `sheet-<screen>.png`, each row's pair at its table width. Look at every sheet
+once. Where a close-up is wrong, where a layout shift needs crops chosen by hand, or where a
+position or alignment change needs a line at its reference (the container edge or the
+centre the change moved against), write the close-ups in a crops file and run it again with
+`--crops <file>`. All coordinates in the file are in the full frame, so there's no
+subtracting:
+
+```
+center-15.3 672x380+28+620 -- Center 15.3, section headings
+center-15.3 732x580+28+1300 line y=1621 -- Center 15.3, summary and checkout button
+left-15.1 234x134+715+594 outline 154x54+755+634 -- Left 15.1, quantity stepper
 ```
 
-Before uploading, resize each image to the width §6 gives it (`magick in.png -resize <width>x
-out.png`) and look at each pair. If you can't tell them apart, the change needs a tighter
-close-up or an annotation.
+A screen named in the file takes only those close-ups. If you can't tell a pair apart on its
+sheet, it needs a tighter close-up or a guide. Drop the close-up rows that a full shot already
+shows clearly at its width (a new screen, a large layout change).
 
 If capture can't be done (the user can't run the dev environment now, or a state needs
 credentials or seed data they don't have), don't stall. Open the PR without the missing rows
@@ -213,49 +232,36 @@ and list them in the report.
 git push origin HEAD:<branch>   # wt/<branch> → origin/<branch>; always name the target
 ```
 
-Write the body by the rules below, then run one `gh pr create`. Without screenshots:
+Write the body by the rules below, then run one `gh pr create`:
 
 ```bash
 gh pr create --head <branch> --base <base> --assignee @me --title "…" --body "…"
 ```
 
-With screenshots, write the body to `body.md` in the §5 directory so the table's `./NN-…png`
-paths resolve, and attach the PNGs the table references. gh uploads each one as a GitHub user
-attachment, the same as dragging it into the PR editor. On a private repo only people with
-repo access can see them, and there's no branch to clean up. Uploads can't be deleted, so the
-list comes from the table, not the whole directory:
+`gh pr create` prints the PR URL as its last line. Keep it for the steps below and §7. If it
+got lost, recover it with `gh pr view <branch> --json url -q .url`.
+
+With screenshots, create the PR with the body minus its Screenshots section. Then write the
+whole body to `body.md` in the `wt shots-diff` output directory, starting the table from its
+`rows.md` with the labels rewritten, and publish it:
 
 ```bash
-dir=<the screenshots dir>
-attach=(); for f in $(grep -oE '\./[^)]+\.png' "$dir/body.md" | sort -u); do
-  attach+=(--attach "$dir/${f#./}"); done
-gh pr create --head <branch> --base <base> --assignee @me --title "…" \
-  --body-file "$dir/body.md" "${attach[@]}"
+wt shots-attach <url> <out-dir>
 ```
 
-`gh pr create` prints the PR URL as its last line. Keep it for the steps below and §7; if it
-got lost, recover it with `gh pr view <branch> --json url -q .url`. With `--attach`, a
-non-zero exit that still prints a URL means an upload failed. gh skips every file after the
-first failure, and the next step finds them.
+It uploads every `./NN-…png` the body names as a GitHub user attachment, the same as dragging
+it into the PR editor, 50 per gh call. On a private repo only people with repo access can see
+them, and there's no branch to clean up. Uploads can't be deleted, so it uploads only what the
+table names. It tries a failed file once more, drops the rows whose images never uploaded,
+turns the images into `<img>` tags so their widths hold, and edits the PR body. List any rows
+it dropped in the report. A failed upload doesn't count as a Stops failure. To add
+screenshots to a PR that's already open, write `body.md` from its current body and run the
+same command.
 
-gh replaces each `./NN-…png` path with the uploaded URL and keeps the alt text, but it only
-rewrites markdown images. Convert them to `<img>` tags so the widths hold. Write to a second
-file, so a failed read can't blank the PR body:
-
-```bash
-gh pr view <url> --json body -q .body \
-  | perl -pe 's/!\[(\d+)\]\((https:\/\/github\.com\/user-attachments\/assets\/[^)\s]+)\)/<img src="$2" width="$1">/g' \
-  > "$dir/body.out.md"
-test -s "$dir/body.out.md" && ! grep -nE '\]\(\./[^)]*\.png|!\[[0-9]+\]\(' "$dir/body.out.md" \
-  && gh pr edit <url> --body-file "$dir/body.out.md"
-```
-
-If the grep prints `./` paths, those files didn't upload. Run
-`gh pr edit <url> --body-file "$dir/body.out.md"` once with them attached, then run the
-conversion again. If they still fail, delete their rows from `body.out.md` (the whole row
-when either image is missing), run the edit, and list them in the report. A failed upload
-doesn't count as a Stops failure. gh accepts at most 50 `--attach` files per command. With
-more, attach the first 50 at create, and the rest go up through the same retry.
+If `wt shots-attach` exits non-zero, it has put the PR body back as it was where it could, and
+it says so. The files it uploaded stay uploaded, so fix the cause it names before running it
+again rather than retrying straight away. If it still fails, leave the table out and list the
+screenshots in the report.
 
 `--assignee @me` is required. Description rules (standing user preferences):
 
@@ -276,8 +282,8 @@ more, attach the first 50 at create, and the rest go up through the same retry.
   representative), Before, and After. A close-up row follows its full-shot row. A new screen
   puts "None" in the Before cell; a removed one puts "Removed" in the After cell. Write each
   image as a markdown image whose alt text is its width: 300 for a portrait full shot, 420 for
-  a landscape one, and the crop's own width up to 440 for a close-up. The conversion above
-  turns them into `<img>` tags with that width:
+  a landscape one, and the crop's own width up to 440 for a close-up. `wt shots-diff` writes
+  them that way, and `wt shots-attach` turns them into `<img>` tags with that width:
 
   ```
   Before is `f02ef8c` and after is `2feee98`.
@@ -285,7 +291,7 @@ more, attach the first 50 at create, and the rest go up through the same retry.
   | Screen | Before | After |
   |---|---|---|
   | Settings, dark mode (same on Profile, Billing) | ![420](./01-settings-before.png) | ![420](./01-settings-after.png) |
-  | Settings, close-up | ![440](./02-settings-before-close.png) | ![440](./02-settings-after-close.png) |
+  | Settings, close-up | ![440](./02-settings-1-before-close.png) | ![440](./02-settings-1-after-close.png) |
   ```
 
 With the PR open, move the board item on from in-progress to whatever status means *awaiting

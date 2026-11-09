@@ -1,0 +1,260 @@
+#!/usr/bin/env python3
+# Usage: wt shots-diff [--noise <dir>] [--crops <file>] [--removed <screen>]... [--fuzz <pct>]
+#                      <before-dir> <after-dir> <out-dir>
+#
+# Pairs each PNG in <after-dir> with the same name in <before-dir> and writes the PR's
+# screenshot rows to <out-dir>: a full shot per changed screen, then a padded 1:1 close-up per changed
+# region, outlined when the region is small. --noise names a second run of the before shots;
+# each screen's count of differing pixels against it is printed as its noise, n/a when the
+# baseline has no such screen. A screen only <after-dir> has is new; one only <before-dir>
+# has is left out (a shared cache holds other PRs' screens) unless --removed names it.
+# --fuzz is the colour distance, in percent, under which two pixels count as equal (3).
+#
+# A screen with more than six regions (a layout shift) gets no close-ups of its own. --crops
+# names a file of close-ups to use instead, one per line, in full-frame coordinates:
+#
+#   <screen> <WxH+X+Y> [outline <WxH+X+Y>]... [line x=<n> | line y=<n>]... [-- <label>]
+#   center-15.3 672x380+28+620 line y=642 -- Center 15.3, section headings
+#
+# A screen named there takes only those close-ups. Also writes rows.md (draft table rows,
+# labels to edit) and sheet-<screen>.png (each row's pair at its table width, to check in
+# one look). Prints one line per screen. Needs magick.
+
+import argparse
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+PAD = 40
+SMALL = 0.05
+LARGE = 1 / 3
+MANY = 6
+GUIDE = ['-stroke', '#ff2d55', '-strokewidth', '2', '-fill', 'none']
+
+
+def magick(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(['magick', *args], capture_output=True, text=True)
+
+
+def size(png: Path) -> tuple[int, int]:
+    w, h = magick('identify', '-format', '%w %h', str(png)).stdout.split()
+    return int(w), int(h)
+
+
+def differing(a: Path, b: Path, fuzz: str) -> float:
+    out = magick('compare', '-metric', 'AE', '-fuzz', fuzz, str(a), str(b), 'null:')
+    match = re.search(r'^\s*([0-9.]+(?:e[+-]?\d+)?)(?:\s+\(|\s*$)', out.stderr or out.stdout, re.M)
+    if out.returncode > 1 or not match:
+        sys.exit(f'wt shots-diff: compare failed on {a.name}: {out.stderr.strip()}')
+    return float(match.group(1))
+
+
+def regions(a: Path, b: Path, fuzz: str, mask: Path) -> list[tuple[int, int, int, int]]:
+    magick('compare', '-fuzz', fuzz, '-compose', 'src', '-highlight-color', 'white',
+           '-lowlight-color', 'black', str(a), str(b), str(mask))
+    out = magick(str(mask), '-threshold', '50%', '-morphology', 'Dilate', 'Disk:12',
+                 '-define', 'connected-components:verbose=true',
+                 '-define', 'connected-components:area-threshold=50',
+                 '-connected-components', '8', 'null:').stdout
+    boxes = []
+    for line in out.splitlines():
+        m = re.match(r'\s*\d+: (\d+)x(\d+)\+(\d+)\+(\d+) .* (gray\(255\)|srgb\(255,255,255\)|white)', line)
+        if m:
+            w, h, x, y = map(int, m.groups()[:4])
+            boxes.append((x, y, x + w, y + h))
+    return boxes
+
+
+Box = tuple[int, int, int, int]
+
+
+def merged(boxes: list[Box], limit: float) -> list[Box]:
+    """Joins boxes whose padded crops would overlap, while the join stays under `limit` px², so one change gets one close-up."""
+    boxes = list(boxes)
+    changed = True
+    while changed:
+        changed = False
+        for i in range(len(boxes)):
+            for j in range(i + 1, len(boxes)):
+                a, b = boxes[i], boxes[j]
+                join = (min(a[0], b[0]), min(a[1], b[1]), max(a[2], b[2]), max(a[3], b[3]))
+                near = a[0] - 2 * PAD < b[2] and b[0] - 2 * PAD < a[2] and a[1] - 2 * PAD < b[3] and b[1] - 2 * PAD < a[3]
+                if near and (join[2] - join[0]) * (join[3] - join[1]) <= limit:
+                    boxes[i] = join
+                    del boxes[j]
+                    changed = True
+                    break
+            if changed:
+                break
+    return sorted(boxes, key=lambda b: (b[1], b[0]))
+
+
+def geometry(text: str) -> Box:
+    m = re.fullmatch(r'(\d+)x(\d+)\+(\d+)\+(\d+)', text)
+    if not m:
+        sys.exit(f'wt shots-diff: "{text}" is not WxH+X+Y')
+    w, h, x, y = map(int, m.groups())
+    return x, y, x + w, y + h
+
+
+def read_crops(path: Path) -> dict[str, list[dict]]:
+    """--crops: each screen's hand-picked close-ups."""
+    crops: dict[str, list[dict]] = {}
+    for raw in path.read_text().splitlines():
+        line, _, text = raw.partition(' -- ')
+        words = line.split()
+        if not words or words[0].startswith('#'):
+            continue
+        if len(words) < 2:
+            sys.exit(f'wt shots-diff: can\'t read "{raw}": it needs a screen and a WxH+X+Y')
+        crop = {'box': geometry(words[1]), 'outlines': [], 'lines': [], 'label': text.strip()}
+        rest = iter(words[2:])
+        for word in rest:
+            value = next(rest, '')
+            if word == 'outline':
+                crop['outlines'].append(geometry(value))
+            elif word == 'line' and re.fullmatch(r'[xy]=\d+', value):
+                crop['lines'].append((value[0], int(value[2:])))
+            else:
+                sys.exit(f'wt shots-diff: can\'t read "{raw}"')
+        crops.setdefault(words[0], []).append(crop)
+    return crops
+
+
+def label(stem: str) -> str:
+    words = stem.replace('-', ' ').split()
+    return ' '.join(w.capitalize() if w.isalpha() else w for w in words)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(prog='wt shots-diff')
+    parser.add_argument('--noise', type=Path)
+    parser.add_argument('--crops', type=Path)
+    parser.add_argument('--removed', action='append', default=[])
+    parser.add_argument('--fuzz', default='3')
+    parser.add_argument('before', type=Path)
+    parser.add_argument('after', type=Path)
+    parser.add_argument('out', type=Path)
+    args = parser.parse_args()
+    if not shutil.which('magick'):
+        sys.exit('wt shots-diff: needs ImageMagick 7 (magick)')
+    for name, d in (('before', args.before), ('after', args.after), ('--noise', args.noise)):
+        if d is not None and not d.is_dir():
+            sys.exit(f'wt shots-diff: {name} dir {d} doesn\'t exist')
+    fuzz = f'{args.fuzz}%'
+    out: Path = args.out
+    out.mkdir(parents=True, exist_ok=True)
+    work = out / '.work'
+    work.mkdir(exist_ok=True)
+
+    crops = read_crops(args.crops) if args.crops else {}
+    after = {p.stem for p in args.after.glob('*.png')}
+    before = {p.stem for p in args.before.glob('*.png')}
+    unknown = [r for r in args.removed if r not in before or r in after]
+    if unknown:
+        sys.exit(f'wt shots-diff: --removed {", ".join(unknown)}: not a before-only screen')
+    stems = sorted(after | set(args.removed))
+    unused = sorted(set(crops) - after)
+    if unused:
+        print(f'--crops names screens with no after shot: {", ".join(unused)}')
+    rows: list[str] = []
+    n = 0
+
+    def row(text: str, before: str, after: str, width: int) -> None:
+        cell = lambda f: f'![{width}](./{f})' if f not in ('None', 'Removed') else f
+        rows.append(f'| {text} | {cell(before)} | {cell(after)} |')
+
+    def sheet(stem: str, pairs: list[tuple[str, str, int]]) -> None:
+        parts: list[str] = []
+        for before, after, width in pairs:
+            cells = [f for f in (before, after) if f not in ('None', 'Removed')]
+            parts += ['(', *[x for f in cells for x in ('(', str(out / f), '-resize', f'{width}x', ')')],
+                      '-background', '#888', '-splice', '8x0', '+append', ')']
+        magick(*parts, '-background', 'white', '-splice', '0x12', '-append', str(out / f'sheet-{stem}.png'))
+
+    for stem in stems:
+        b, a = args.before / f'{stem}.png', args.after / f'{stem}.png'
+        if not b.exists() or not a.exists():
+            n += 1
+            src = a if a.exists() else b
+            w, h = size(src)
+            name = f'{n:02d}-{stem}-{"after" if a.exists() else "before"}.png'
+            shutil.copy(src, out / name)
+            width = 300 if h > w else 420
+            pair = ('None', name) if a.exists() else (name, 'Removed')
+            row(f'{label(stem)}{" (new)" if a.exists() else " (removed)"}', *pair, width)
+            sheet(stem, [(*pair, width)])
+            print(f'{stem}: {"new" if a.exists() else "removed"}')
+            continue
+        if size(b) != size(a):
+            print(f'{stem}: SIZE MISMATCH {size(b)} before, {size(a)} after; retake one of them')
+            continue
+        noise = ''
+        if args.noise and not (args.noise / f'{stem}.png').exists():
+            noise = ' noise=n/a (no baseline for this screen)'
+        elif args.noise:
+            count = differing(b, args.noise / f'{stem}.png', fuzz)
+            noise = f' noise={count:g}' + (' NOISY: settle longer or mask it' if count else '')
+        count = differing(b, a, fuzz)
+        if count == 0:
+            print(f'{stem}: no change{noise}')
+            continue
+
+        W, H = size(b)
+        n += 1
+        full = n
+        width = 300 if H > W else 420
+        for t, src in (('before', b), ('after', a)):
+            shutil.copy(src, out / f'{full:02d}-{stem}-{t}.png')
+        row(label(stem), f'{full:02d}-{stem}-before.png', f'{full:02d}-{stem}-after.png', width)
+        pairs = [(f'{full:02d}-{stem}-before.png', f'{full:02d}-{stem}-after.png', width)]
+        notes = []
+        found = merged(regions(b, a, fuzz, work / f'mask-{stem}.png'), LARGE * W * H)
+        if stem in crops:
+            chosen = crops[stem]
+        elif len(found) > MANY:
+            chosen = []
+            notes.append(f'{len(found)} regions, likely a layout shift: no close-ups, give them with --crops')
+        else:
+            chosen = []
+            for x0, y0, x1, y1 in found:
+                box = (max(0, x0 - PAD), max(0, y0 - PAD), min(W, x1 + PAD), min(H, y1 + PAD))
+                small = (x1 - x0) * (y1 - y0) < SMALL * W * H
+                chosen.append({'box': box, 'outlines': [(x0, y0, x1, y1)] if small else [], 'lines': [], 'label': ''})
+        for k, crop in enumerate(chosen, 1):
+            cx, cy, cx1, cy1 = crop['box']
+            cw, ch = min(W, cx1) - cx, min(H, cy1) - cy
+            if cw <= 0 or ch <= 0:
+                sys.exit(f'wt shots-diff: a --crops box for {stem} lies outside its {W}x{H} frame')
+            if cw * ch > LARGE * W * H:
+                notes.append(f'close-up {k} covers {cw * ch / (W * H):.0%} of the frame: two changes or noise?')
+            draw = []
+            for x0, y0, x1, y1 in crop['outlines']:
+                draw += ['-draw', f'rectangle {x0 - cx},{y0 - cy} {x1 - cx - 1},{y1 - cy - 1}']
+            for axis, at in crop['lines']:
+                draw += ['-draw', f'line {at - cx},0 {at - cx},{ch}' if axis == 'x' else f'line 0,{at - cy} {cw},{at - cy}']
+            n += 1
+            slug = f'{n:02d}-{stem}-{k}'
+            for t, src in (('before', b), ('after', a)):
+                guides = [*GUIDE, *draw] if draw else []
+                magick(str(src), '-crop', f'{cw}x{ch}+{cx}+{cy}', '+repage', *guides, str(out / f'{slug}-{t}-close.png'))
+            text = crop['label'] or f'{label(stem)}, close-up {k}' + (' (outlined)' if crop['outlines'] else '')
+            row(text, f'{slug}-before-close.png', f'{slug}-after-close.png', min(cw, 440))
+            pairs.append((f'{slug}-before-close.png', f'{slug}-after-close.png', min(cw, 440)))
+            notes.append(f'close-up {k} {cw}x{ch}+{cx}+{cy}')
+        if not crops.get(stem):
+            notes += [f'region {x1 - x0}x{y1 - y0}+{x0}+{y0}' for x0, y0, x1, y1 in found[:12]]
+        sheet(stem, pairs)
+        print(f'{stem}: {count:g} px changed{noise}; ' + '; '.join(notes))
+
+    left_out = sorted(before - after - set(args.removed))
+    if left_out:
+        print(f'{len(left_out)} before-only screens left out (not retaken): {", ".join(left_out)}')
+    (out / 'rows.md').write_text('| Screen | Before | After |\n|---|---|---|\n' + '\n'.join(rows) + '\n')
+    shutil.rmtree(work)
+    print(f'{len(rows)} rows in {out / "rows.md"}; check sheet-*.png')
+
+
+main()

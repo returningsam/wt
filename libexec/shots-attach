@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+# Usage: wt shots-attach <pr-url> <dir>
+#
+# Publishes <dir>/body.md as the PR's body. It uploads every ./NN-*.png the body names as a
+# GitHub attachment (50 per gh call, trying a file that fails once more), turns each
+# ![<width>](<attachment url>) into <img src="…" width="<width>">, and drops the table rows
+# whose images never uploaded. Writes the published body to <dir>/body.out.md and prints
+# what it dropped. Needs gh 2.99.0 or later.
+
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+LOCAL = re.compile(r'\]\(\./([^)\s/]+\.png)\)')
+UPLOADED = re.compile(r'!\[(\d+)\]\((https://github\.com/user-attachments/assets/[^)\s]+)\)')
+BATCH = 50
+
+
+def gh(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(['gh', *args], capture_output=True, text=True)
+
+
+def main() -> None:
+    if len(sys.argv) != 3:
+        sys.exit('usage: wt shots-attach <pr-url> <dir>')
+    url, folder = sys.argv[1], Path(sys.argv[2]).resolve()
+    body_file, out_file = folder / 'body.md', folder / 'body.out.md'
+    if not body_file.is_file():
+        sys.exit(f'wt shots-attach: no {body_file}')
+    body = body_file.read_text()
+    if re.search(r'\]\(\.{1,2}/[^)\s]*/', body):
+        sys.exit('wt shots-attach: body.md names an image outside its folder; only ./<name>.png is uploaded')
+    missing = [f for f in dict.fromkeys(LOCAL.findall(body)) if not (folder / f).is_file()]
+    if missing:
+        sys.exit(f'wt shots-attach: body.md names files that are not in {folder}: {", ".join(missing)}')
+
+    original = gh('pr', 'view', url, '--json', 'body', '-q', '.body')
+    if original.returncode != 0:
+        sys.exit(f'wt shots-attach: could not read {url}: {original.stderr.strip()}')
+    backup = folder / 'body.before.md'
+    backup.write_text(original.stdout)
+
+    def give_up(message: str) -> None:
+        restored = gh('pr', 'edit', url, '--body-file', str(backup)).returncode == 0
+        state = 'the PR body is back as it was' if restored else f'the PR body may be half-done; its old text is in {backup}'
+        sys.exit(f'wt shots-attach: {message}; {state}. Uploaded files stay uploaded, so rerun only once the cause is fixed.')
+
+    tries: dict[str, int] = {}
+    idle = 0
+    while True:
+        pending = [f for f in dict.fromkeys(LOCAL.findall(body)) if tries.get(f, 0) < 2]
+        if not pending:
+            break
+        batch = pending[:BATCH]
+        out_file.write_text(body)
+        attach = [x for f in batch for x in ('--attach', str(folder / f))]
+        result = gh('pr', 'edit', url, '--body-file', str(out_file), *attach)
+        if result.returncode != 0:
+            print(result.stderr.strip(), file=sys.stderr)
+        read = gh('pr', 'view', url, '--json', 'body', '-q', '.body')
+        if read.returncode != 0 or not read.stdout.strip():
+            give_up(f'could not read the PR body back ({read.stderr.strip()})')
+        before = len(UPLOADED.findall(body))
+        # An edit that failed outright leaves the PR's old body, which has none of ours.
+        if LOCAL.search(read.stdout) or UPLOADED.search(read.stdout):
+            body = read.stdout
+        # gh stops at the first file that fails and skips the rest, so only that one used a try.
+        left = set(LOCAL.findall(body))
+        failed = next((f for f in batch if f in left), None)
+        if failed:
+            tries[failed] = tries.get(failed, 0) + 1
+        idle = idle + 1 if len(UPLOADED.findall(body)) == before else 0
+        if idle == 2 and not UPLOADED.search(body):
+            give_up('two gh calls in a row uploaded nothing')
+
+    if not UPLOADED.search(body):
+        give_up('nothing uploaded')
+    dropped = sorted(set(LOCAL.findall(body)))
+    if dropped:
+        body = '\n'.join(line for line in body.splitlines() if not LOCAL.search(line)) + '\n'
+    body = UPLOADED.sub(r'<img src="\2" width="\1">', body)
+    if re.search(r'!\[\d+\]\(', body):
+        give_up('a markdown image is left that is not an attachment')
+    out_file.write_text(body)
+    result = gh('pr', 'edit', url, '--body-file', str(out_file))
+    if result.returncode != 0:
+        give_up(f'the last gh pr edit failed ({result.stderr.strip()})')
+    print(f'{len(re.findall(r"<img src=", body))} images in the body of {url}')
+    if dropped:
+        print(f'dropped the rows for {", ".join(dropped)}: they did not upload')
+
+
+main()
