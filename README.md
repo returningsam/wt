@@ -80,10 +80,15 @@ The `pr` skill (`/wt:pr`) implements an issue in a worktree (a bug fix, a featur
 PR can resolve), runs independent reviews over it, then opens an assigned PR from `wt/<branch>`
 to `origin/<branch>`. It hands the implementation to one of the plugin's `implementer-*`
 agents, all on Opus, picking `medium`, `high`, or `xhigh` effort from how hard the work looks.
-When the change is visual, it asks you to start the dev environment in `main/` on the before
-and then the after state, captures screenshots of each, uploads them as attachments on the
-PR (gh 2.99.0 or later), and adds a before/after table to the PR body. A pixel diff finds each change, and a
-cropped, annotated close-up keeps a small change visible at table size.
+When the change is visual, it sends the repo's screenshot generator a request saying which
+screens should change, starting that generator's T3 thread if none exists.
+
+The `shots` skill (`/wt:shots`) runs in that generator session, one per repo. It captures the
+before and after states of a PR on its own `shots-runner` worktree and dev servers, so your
+`main/` checkout and dev environment stay untouched. It uploads the shots as attachments on
+the PR (gh 2.99.0 or later) and adds a before/after table to the PR body. A pixel diff finds
+each change, and a cropped, annotated close-up keeps a small change visible at table size.
+Requests are handled one at a time.
 
 The `setup` skill (`/wt:setup`) writes or updates `.wt`. It suggests a name and finds the
 repo's project board from the boards its recent issues are on.
