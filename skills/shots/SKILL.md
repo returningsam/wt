@@ -84,8 +84,8 @@ guessing.
 
 ## 4. Capture
 
-Run `shoot.sh` once for the after state and, unless the cache has them, once for the
-before state. Check the runner's `HEAD` before and after each run.
+Run `shoot.sh` once for the after state and, unless the cache has them (see Cache the before
+shots by SHA), once for the before state. Check the runner's `HEAD` before and after each run.
 
 Capture each screen at its native size with a device pixel ratio of 1. A simulator's own
 screenshot size is fine as it is. Turn reduced motion on, pause videos at their first frame,
