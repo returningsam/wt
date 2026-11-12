@@ -18,6 +18,71 @@ sending the repo's screenshot generator a request, and starting that generator's
 none exists (§6). Nothing else — no other branch, no force-push after the PR exists, no merge,
 no writes to the original checkout, no other edit to the issue.
 
+## Coordinated runs
+
+A task that says "Coordinated run for the <name> coordinator" comes from a `/wt:coordinate`
+session. The coordinator speaks for the user: where this skill says to ask or tell the user,
+that means the coordinator. Talk only to the coordinator, never to another session. The brief
+settles the restatement, scope, starting point, and PR base, so don't ask about those again.
+
+**Ask instead of deciding.** Unless the brief settles it, ask with `AskUserQuestion` (T3
+delivers it to the coordinator) and wait for the answer before:
+
+- growing or narrowing the scope, including fixes you notice on the way;
+- taking an approach other than the brief's, or a second reading of the issue;
+- using another branch or base, stacking, or reusing a branch;
+- resolving a conflict by choosing one side's behavior over the other's, or with code outside
+  the PR's scope;
+- deciding user-visible behavior, copy, or design the issue doesn't specify;
+- touching schemas, contracts, migrations, persistence formats, auth, public APIs,
+  dependencies, CI, build or release config, or telemetry;
+- any GitHub action beyond this skill's authorization.
+
+Don't decide one alone because it looks small.
+
+**Changes to cutting the worktree.** T3 already made your worktree and names its branch from
+your brief. Don't run `wt new`. Confirm the tree is clean, then move to the brief's starting
+point. The branch has no commits of its own yet, so this rewrites nothing:
+
+```bash
+git fetch origin
+git reset --hard <start-from>
+```
+
+If git reports a locked ref, T3 is still renaming the branch, so run it again. If the lockfile
+differs between the commit T3 installed and `<start-from>`, install again.
+
+**Changes to screenshots.** Never contact the screenshot generator. Write the request from the
+screenshots step to `<container>/.coordinator/shots/<branch, with / as ->.md`, then ask the
+coordinator with `AskUserQuestion` to run it, naming that path. Its answer gives the path of the
+generator's reply, or says why there is none. Check the reply as the screenshot follow-up step
+describes. If the request was wrong, write a corrected one and ask again. If the code is wrong,
+say so in your report. Don't finish until the screenshots are in or the coordinator says they
+can't be.
+
+**Changes to opening the PR.** Before pushing, check `git branch --show-current`. If it's still
+T3's temporary `wt/<8 hex>` name, or doesn't start with `wt/`, rename it to
+`wt/<type>/i<issue>-<slug>` (`wt/<type>/<slug>` with no issue) and create its tracking branch:
+
+```bash
+git branch -m wt/<branch>
+git branch --track <branch> wt/<branch>
+```
+
+Open the PR against the brief's PR base. Don't watch it; the coordinator does.
+
+**Changes to the report.** The report goes to the coordinator. End it with one line:
+`PR <full URL>, head <SHA>, branch <wt/branch>, checks and reviews <state>`, or
+`Stopped: <reason>` when there's no PR.
+
+**Fix rounds.** A later message from the coordinator in this thread is a fix round for your PR:
+a failing check, a conflict, or a stale description. Each round authorizes its own commits, one
+push, and a description edit. Do only what the message lists. Add new commits and never amend,
+rebase, or reset. For a conflict, merge `origin/<base>` into the branch. Run verification,
+publish the commits the same way the open-the-PR step does, and when what the PR does changed,
+update its description with `gh pr edit --body`. If the fix changes rendered UI, send a new
+screenshot request as above. End with the same report line.
+
 ## 1. Resolve the issue, then claim it
 
 Argument is a description of the change or an issue URL / `#123` / number. For an issue read the

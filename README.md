@@ -90,6 +90,16 @@ the PR (gh 2.99.0 or later) and adds a before/after table to the PR body. A pixe
 each change, and a cropped, annotated close-up keeps a small change visible at table size.
 Requests are handled one at a time.
 
+The `coordinate` skill (`/wt:coordinate`) runs in a long-lived coordinator session, one per
+repo, inside T3 Code. You bring it issues or a goal. It checks them against open issues,
+proposes how to split them into PRs and how much effort each needs, and waits for your
+approval. Then it starts a delegated T3 thread for each PR that runs `/wt:pr` in its own
+worktree. PR threads talk only to the coordinator. It answers what the approved plan already
+settles, asks you the rest, and runs the screenshot generator for them. It watches the PRs,
+sends a PR's own thread back to fix failing checks and conflicts, leaves review comments to
+you, and tells you when each PR is ready, with a merge order. It never merges. Its state lives
+in `<repo>/.coordinator/ledger.md`.
+
 The `setup` skill (`/wt:setup`) writes or updates `.wt`. It suggests a name and finds the
 repo's project board from the boards its recent issues are on.
 
