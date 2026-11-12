@@ -15,9 +15,9 @@ server. A request names an open PR. You capture its before and after states, add
 **Authorization:** this skill authorizes creating the runner worktree with `wt new`, moving it
 between commits, installing its dependencies, starting and stopping its dev servers, and, for
 each PR a request names, uploading screenshots as attachments and the `gh pr edit` calls on
-its body that §7 describes. Nothing else: no code changes, commits, pushes, PRs, or issue and
-board edits, no writes to `main/`, no other section of a PR body. Never run Storybook. If a
-request asks for code or PR work, decline and say the requesting session should do it.
+its body that Attach describes. Nothing else: no code changes, commits, pushes, PRs, or issue
+and board edits, no writes to `main/`, no other section of a PR body. Never run Storybook. If
+a request asks for code or PR work, decline and say the requesting session should do it.
 
 ## 1. Take the role
 
@@ -60,7 +60,7 @@ proxy until the ports went inside it: `mise exec -- env PORT=… <cmd>`.
 the task runner (for example `mise run shots`). Older commits don't have it, so keep a copy
 from `origin/<base>` in the runner folder, with `node_modules` linked to the runner
 worktree's. When the repo has none, write one with Playwright in the runner folder that
-follows the rules in §4.
+follows the rules under Capture.
 
 Run `up.sh` when a request needs the servers and they're down. If another session asks you
 to free memory, run `down.sh` and reply with what you stopped. `up.sh` starts them again on
@@ -84,7 +84,7 @@ guessing.
 
 ## 4. Capture
 
-Run `shoot.sh` once for the after state and, unless the cache has them (§5), once for the
+Run `shoot.sh` once for the after state and, unless the cache has them, once for the
 before state. Check the runner's `HEAD` before and after each run.
 
 Capture each screen at its native size with a device pixel ratio of 1. A simulator's own
@@ -98,7 +98,7 @@ the viewport, not a full-page scroll, unless the change is page-wide.
 Things that went wrong before:
 
 - A value that changes on its own (a ticking timer, a progress bar) never gives two matching
-  frames. Keep the shot and mark its row unverified (§7). Don't drop it.
+  frames. Keep the shot and mark its row unverified (see Attach). Don't drop it.
 - Walking through an app's steps can reset an input the request set. Set the input again
   around every step change, and check each shot used it.
 - A step that advances on its own looks different from run to run. Compare its before and
