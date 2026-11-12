@@ -11,9 +11,9 @@ Clean up worktrees in the current repo. Gather facts, classify, remove merged wo
 about the rest, then remove what the user picks.
 
 **Authorization:** invoking this skill authorizes `git fetch --prune`, `git worktree prune`,
-removing merged worktrees (§2) without asking, and removing the worktrees the user selects
-in §3. Nothing else: no pushes, no edits inside a
-worktree, no changes to `main/`'s checked-out branch.
+removing merged worktrees without asking, and removing the worktrees the user selects under
+Ask. Nothing else: no pushes, no edits inside a worktree, no changes to `main/`'s checked-out
+branch.
 
 ## 1. Gather
 
@@ -33,7 +33,7 @@ Skip the main checkout and the worktree this session is running in. For every ot
 worktree, collect:
 
 - **Branch.** From the `branch` line. Detached or not under `wt/` is a legacy or foreign
-  worktree (often under `.claude/worktrees/`); `wt rm` won't take it, see §4.
+  worktree (often under `.claude/worktrees/`); `wt rm` won't take it, see Remove.
 - **Dirty.** `git -C <dir> status --porcelain | wc -l`, split into tracked changes and
   untracked files.
 - **Unique commits.** Commits on `wt/<branch>` that aren't on `<branch>`, `origin/<branch>`,
@@ -53,7 +53,7 @@ worktree, collect:
   after a squash merge, `wt rm` needs `--force`.
 - Clean, and `wt/<branch>` is an ancestor of `$default` (a regular merge).
 
-Only ask first if `lsof` (§3) finds a process using the directory.
+Only ask first if the `lsof` check under Ask finds a process using the directory.
 
 **Safe to remove:** clean, no unique commits, but no merge found (pushed without a merged
 PR, or never used).
@@ -73,7 +73,7 @@ Before removing any worktree, merged ones included, warn if a dev server or edit
 using it. Check with `lsof -t +d <dir> 2>/dev/null | head` (non-recursive, fast) and name any
 processes found.
 
-Remove the merged bucket first (§4). Then print one compact table per bucket, merged
+Remove the merged bucket first (see Remove). Then print one compact table per bucket, merged
 included so the user sees what went. Columns are worktree dir name, branch, PR link, last
 activity, and the reason for the bucket. Then use `AskUserQuestion` with
 `multiSelect: true`: one question for safe-to-remove (all listed) and one for
