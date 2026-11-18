@@ -234,13 +234,20 @@ This task authorizes /wt:pr's implementer and reviewer subagents.
 
 A coordinated /wt:pr thread asks instead of deciding anything on the "Ask first" list, and waits
 for the answer. T3 wakes this thread with a notice naming the PR thread and the request ID. Read
-the question with `t3_pending_request` `read`, passing both. `respond` takes `answers` keyed by
-each question's `id`, with an option's label or your own text as the value.
+the question with `t3_pending_request` `read`, passing both.
 
 - A screenshot request: handle it as Helper sessions describes.
 - Settled by the plan, a standing approval, or an earlier decision: answer it and log it.
 - Otherwise mark the row `asking`, add it to "Waiting on the user", and ask. Pass the answer on
   with `respond`, log it, and add a standing approval when the user says it applies more widely.
+
+Answer with `respond`. Key `answers` by each question's `id`, copied exactly as `read` returns
+it. The `id` is often the full question text, not its `header`, and a key that doesn't match
+reaches the PR thread as an empty answer. Each value is an option's label, or your own text,
+including any choice the user made outside the options. Answer every question in one `respond`.
+If one is still open, answer it with a note that the answer is pending and will follow as a
+thread message. If a PR thread reports an empty answer anyway, resend the answers with
+`t3_thread_send`.
 
 ## 7. Results
 
