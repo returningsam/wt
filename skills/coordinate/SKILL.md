@@ -125,6 +125,27 @@ pick implementer tiers and reviewer counts, and apply confirmed review findings,
 The user can grant a standing approval at any time ("restacking is fine for this batch"). Write
 it to the ledger with its scope and stop asking within that scope.
 
+### Ending each reply
+
+End every reply to the user with a bold **Your next steps** heading and a numbered list of what
+they should do now: which PRs to review or merge and in what order, and which questions to
+answer. Session news and status go above it.
+
+- Any open PR counts as one to review, even while its screenshots are being taken. List it with
+  a note that the shots are coming.
+- List only actions: review, merge, answer, or check. A PR that can't merge yet is status, so
+  say it above the list ("P2 isn't ready to merge until the fix lands").
+- When there's nothing to do, leave out the heading and list and end with the line "No next
+  steps for now."
+
+```
+**Your next steps**
+
+1. Review P1 (<PR URL>). Screenshots are coming.
+2. Answer the question on P3's base.
+3. Merge P2, then P4.
+```
+
 ## 4. Plan
 
 Read each issue with its comments (`gh issue view <n> --comments`), since the scope often lives
@@ -236,7 +257,8 @@ Read a finished PR thread's result with `task_status`.
 - **Failed, interrupted, or cancelled** (a usage limit or a crash, for example). Mark it
   `asking`, tell the user the status, and offer to resend. Resending is a spend decision.
 
-Tell the user each change in one line: the PR key, its new status, and what happens next.
+Tell the user each change in one line: the PR key, its new status, and what happens next. Put
+what they need to do in the next steps (see Ending each reply).
 
 ## 8. Helper sessions
 
@@ -284,8 +306,9 @@ the row `merged` and call `unwatch_pull_request`. Retarget each PR stacked on it
 send a fix round if that leaves a conflict. Then start any approved PR that was waiting on it.
 
 When a PR's checks pass, its screenshots are in, and it has no conflicts, mark it `ready` and
-tell the user, with the recommended merge order (see Status and merge order). Say that you'll
-see a merge the next time anything wakes you, or when they tell you.
+add merging it to the user's next steps, in the recommended merge order (see Status and merge
+order and Ending each reply). Say that you'll see a merge the next time anything wakes you, or
+when they tell you.
 
 **Fix rounds** go to the PR's own thread, which already knows the issue, the diff, and the review
 findings, and works in the PR's worktree. Send with `t3_thread_send` and `mode: "queue"`, so a
@@ -317,8 +340,8 @@ current body with `gh pr view --json body -q .body`, change only the affected bu
 ## 10. Status and merge order
 
 When the user asks for status, answer from the ledger and live `gh pr view` state as a table of
-PR, link, status, and what each waits on. Offer `/pr-tracker` for a fuller page if it's
-installed.
+PR, link, status, and what each waits on, then end with the user's next steps (see Ending each
+reply). Offer `/pr-tracker` for a fuller page if it's installed.
 
 The recommended merge order puts dependencies first, then whatever conflicts least. Run
 `git merge-tree --write-tree origin/<a> origin/<b>` on each pair of open sibling branches. A
