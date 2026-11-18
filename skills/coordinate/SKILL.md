@@ -132,7 +132,7 @@ they should do now: which PRs to review or merge and in what order, and which qu
 answer. Session news and status go above it.
 
 - Any open PR counts as one to review, even while its screenshots are being taken. List it with
-  a note that the shots are coming.
+  a note that screenshots are coming.
 - List only actions: review, merge, answer, or check. A PR that can't merge yet is status, so
   say it above the list ("P2 isn't ready to merge until the fix lands").
 - When there's nothing to do, leave out the heading and list and end with the line "No next
@@ -307,8 +307,8 @@ send a fix round if that leaves a conflict. Then start any approved PR that was 
 
 When a PR's checks pass, its screenshots are in, and it has no conflicts, mark it `ready` and
 add merging it to the user's next steps, in the recommended merge order (see Status and merge
-order and Ending each reply). Say that you'll see a merge the next time anything wakes you, or
-when they tell you.
+order and Ending each reply). Above the list, say that you'll see a merge the next time
+anything wakes you, or when they tell you.
 
 **Fix rounds** go to the PR's own thread, which already knows the issue, the diff, and the review
 findings, and works in the PR's worktree. Send with `t3_thread_send` and `mode: "queue"`, so a
@@ -340,8 +340,8 @@ current body with `gh pr view --json body -q .body`, change only the affected bu
 ## 10. Status and merge order
 
 When the user asks for status, answer from the ledger and live `gh pr view` state as a table of
-PR, link, status, and what each waits on, then end with the user's next steps (see Ending each
-reply). Offer `/pr-tracker` for a fuller page if it's installed.
+PR, link, status, and what each waits on, and offer `/pr-tracker` for a fuller page if it's
+installed. End with the user's next steps (see Ending each reply).
 
 The recommended merge order puts dependencies first, then whatever conflicts least. Run
 `git merge-tree --write-tree origin/<a> origin/<b>` on each pair of open sibling branches. A
