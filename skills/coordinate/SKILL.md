@@ -27,6 +27,8 @@ yourself.
   resources;
 - watching the PRs, retargeting a stacked PR onto the branch its parent merged into, and editing
   a PR's description when its PR thread is gone;
+- marking a PR ready for review with `gh pr ready`, and back to draft with `--undo`;
+- linking each PR to this thread and unlinking it once it merges or closes;
 - recreating a PR's worktree with `wt new` when a fix round needs it and it's gone;
 - writing files in `<container>/.coordinator/`.
 
@@ -62,10 +64,11 @@ a PR you watch. Nothing runs on a schedule. Other sessions may send work here wi
 
 The ledger is `<container>/.coordinator/ledger.md`. It is how the role survives compaction and
 restarts. At the start of every turn, read it and refresh each row that isn't `merged` or
-`dropped` with `gh pr view <n> --json state,headRefName,baseRefName`. T3 doesn't wake you when a
-PR merges, so this refresh is where you find merges (see Follow the PRs). Write the ledger
-before ending any turn that changed something. Rewrite rows in place; only the decisions log
-grows.
+`dropped` with `gh pr view <n> --json state,isDraft,headRefName,baseRefName`. T3 doesn't wake
+you when a PR merges, so this refresh is where you find merges (see Follow the PRs). When a PR's
+draft state doesn't match its row, run the ready check in Follow the PRs and set both from it.
+Write the ledger before ending any turn that changed something. Rewrite rows in place; only the
+decisions log grows.
 
 - **Standing approvals.** What the user allowed without asking again, its scope (one PR, this
   batch, always), and the date.
@@ -73,6 +76,7 @@ grows.
   (`Closes #12`, `Refs #15`), branch (the PR's `headRefName`), worktree path, base, effort,
   depends on, status, PR thread link and task ID, PR URL, and fix rounds used. Status is one of
   `planned`, `approved`, `running`, `asking`, `pr-open`, `fixing`, `ready`, `merged`, `dropped`.
+  On GitHub, `pr-open` and `fixing` PRs are drafts and `ready` PRs are marked ready.
 - **Helper sessions.** Each helper's thread link, and whether its resources are running.
 - **Waiting on the user.** Each open question and the PR it blocks.
 - **Decisions.** One dated line each: the question, the answer, and who decided (the user or
@@ -131,8 +135,11 @@ End every reply to the user with a bold **Your next steps** heading and a number
 they should do now: which PRs to review or merge and in what order, and which questions to
 answer. Session news and status go above it.
 
-- Any open PR counts as one to review, even while its screenshots are being taken. List it with
-  a note that screenshots are coming.
+- Review and merge items are only for `ready` PRs. A draft PR is status, so say it above the
+  list ("P1 is a draft until its screenshots are in").
+- The user merges without telling you. Before listing a PR, check its live state with
+  `gh pr view` or `gh pr list --state all`. Handle one found merged as Follow the PRs describes,
+  and leave it out.
 - List only actions: review, merge, answer, or check. A PR that can't merge yet is status, so
   say it above the list ("P2 isn't ready to merge until the fix lands").
 - When there's nothing to do, leave out the heading and list and end with the line "No next
@@ -141,7 +148,7 @@ answer. Session news and status go above it.
 ```
 **Your next steps**
 
-1. Review P1 (<PR URL>). Screenshots are coming.
+1. Review P1 (<PR URL>).
 2. Answer the question on P3's base.
 3. Merge P2, then P4.
 ```
@@ -254,10 +261,12 @@ thread message. If a PR thread reports an empty answer anyway, resend the answer
 Read a finished PR thread's result with `task_status`.
 
 - **PR open.** The last line names the PR, its head SHA, its branch, and its state. Check it
-  with `gh pr view <url> --json state,headRefName,baseRefName`. Record `headRefName` and the
-  worktree path (`t3_thread_read` on the PR thread shows it) in the ledger. Mark the row
-  `pr-open`, link the PR to this thread with `link_pull_request`, watch it (see Follow the PRs),
-  and start whatever it unblocked.
+  with `gh pr view <url> --json state,isDraft,headRefName,baseRefName`. Record `headRefName`
+  and the worktree path (`t3_thread_read` on the PR thread shows it) in the ledger. Mark the row
+  `pr-open`, and in this same turn link the PR to this thread with `link_pull_request` and watch
+  it (see Follow the PRs). Run the ready check, and start whatever the PR unblocked.
+- **Fix round done.** Its last line is the same report. Mark the row `pr-open` and run the ready
+  check.
 - **Stopped without a PR.** No real defect, the scope grew, or verification failed. Mark it
   `asking` and bring the PR thread's reason to the user. Retry alone only after a transient
   failure, and only once.
@@ -304,24 +313,34 @@ conflicts. PR threads never watch. Never poll. On a wake:
 - **A review comment from a person**: no action. That's between the user and the reviewer. If
   the user brings one here, treat it as a request.
 - **A bot comment** (preview deployment status and links): ignore it.
-- **Closed without merging**: mark the row `dropped` and tell the user.
+- **Closed without merging**: mark the row `dropped`, unlink it with `unlink_pull_request`, and
+  tell the user.
 - **Watching stopped** after repeated comment-only wakes: call `watch_pull_request` again.
 
 T3 doesn't wake you when a PR merges. When the refresh at the start of a turn finds one, mark
-the row `merged` and call `unwatch_pull_request`. Retarget each PR stacked on it with
-`gh pr edit <n> --base <branch>` onto the branch it merged into, unless GitHub already did, and
-send a fix round if that leaves a conflict. Then start any approved PR that was waiting on it.
+the row `merged`, call `unwatch_pull_request`, and unlink it with `unlink_pull_request` (or
+`unlink_pull_requests` with states merged and closed), so this thread lists only open PRs.
+Retarget each PR stacked on it with `gh pr edit <n> --base <branch>` onto the branch it merged
+into, unless GitHub already did, and send a fix round if that leaves a conflict.
+Then start any approved PR that was waiting on it.
 
-When a PR's checks pass, its screenshots are in, and it has no conflicts, mark it `ready` and
-add merging it to the user's next steps, in the recommended merge order (see Status and merge
-order and Ending each reply). Above the list, say that you'll see a merge the next time
-anything wakes you, or when they tell you.
+**The ready check.** A PR stays a draft while its thread is building it, in a fix round, or
+waiting on screenshots. Run this check after each of its thread's reports and on each wake for
+it, since nothing wakes you once the last condition holds. When the thread's final report is in,
+the screenshots pass, the description matches the head, the checks pass, and it has no
+conflicts, run `gh pr ready <n>`, mark the row `ready`, and add reviewing and merging it to the
+user's next steps, in the recommended merge order (see Status and merge order and Ending each
+reply). Above the list, say that you'll see a merge the next time anything wakes you, or when
+they tell you. If the repo runs no checks on drafts, mark it ready without them; a check that
+then fails sends a fix round as usual. If the repo doesn't support drafts, skip the draft
+commands and keep the rest.
 
 **Fix rounds** go to the PR's own thread, which already knows the issue, the diff, and the review
 findings, and works in the PR's worktree. Send with `t3_thread_send` and `mode: "queue"`, so a
 running turn is never interrupted. The send returns a task ID, and its finish wakes this thread
-like the first run. Mark the row `fixing`. While a row is `fixing`, note new wakes for it in the
-ledger and look at them again after the round's report. The message is self-contained:
+like the first run. Mark the row `fixing`, and if the PR was ready, run `gh pr ready <n> --undo`
+in the same turn. While a row is `fixing`, note new wakes for it in the ledger and look at them
+again after the round's report. The message is self-contained:
 
 ```
 Fix round <n> for <PR URL>.
@@ -364,5 +383,6 @@ or point the user at `/wt:clean`.
 - A fix round finds the worktree on the wrong branch or with changes it didn't make. Stop that
   PR and ask. Don't clean it up.
 - The ledger is missing or doesn't match the PRs on GitHub. Rebuild it from `gh pr list
-  --author @me` and the open PR threads, show the user what you rebuilt, and continue once they
+  --author @me --json number,state,isDraft,headRefName` and the open PR threads, with draft PRs
+  as `pr-open` and the rest as `ready`. Show the user what you rebuilt, and continue once they
   confirm.
