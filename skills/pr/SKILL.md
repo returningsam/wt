@@ -81,8 +81,9 @@ git branch --set-upstream-to=wt/<branch> <branch>
 ```
 
 `git branch -f` refuses when the user has `<branch>` checked out in `main/`. Leave it then, and
-say so in your report. Open the PR against the brief's PR base. Don't watch it; the coordinator
-does.
+say so in your report. Open the PR against the brief's PR base with `gh pr create --draft`.
+Don't watch it, and never mark it ready, in the first run or a fix round. The coordinator does
+both.
 
 **Changes to the report.** Write the report after the screenshot exchange is done. Its last
 line, and the last line of your final message, is

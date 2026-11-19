@@ -62,8 +62,9 @@ a PR you watch. Nothing runs on a schedule. Other sessions may send work here wi
 
 The ledger is `<container>/.coordinator/ledger.md`. It is how the role survives compaction and
 restarts. At the start of every turn, read it and refresh each row that isn't `merged` or
-`dropped` with `gh pr view <n> --json state,headRefName,baseRefName`. T3 doesn't wake you when a
-PR merges, so this refresh is where you find merges (see Follow the PRs). Write the ledger
+`dropped` with `gh pr view <n> --json state,isDraft,headRefName,baseRefName`. T3 doesn't wake
+you when a PR merges, so this refresh is where you find merges (see Follow the PRs). Fix a draft
+state that doesn't match the row's status (see Follow the PRs). Write the ledger
 before ending any turn that changed something. Rewrite rows in place; only the decisions log
 grows.
 
@@ -73,6 +74,7 @@ grows.
   (`Closes #12`, `Refs #15`), branch (the PR's `headRefName`), worktree path, base, effort,
   depends on, status, PR thread link and task ID, PR URL, and fix rounds used. Status is one of
   `planned`, `approved`, `running`, `asking`, `pr-open`, `fixing`, `ready`, `merged`, `dropped`.
+  On GitHub, `pr-open` and `fixing` PRs are drafts and `ready` PRs are marked ready.
 - **Helper sessions.** Each helper's thread link, and whether its resources are running.
 - **Waiting on the user.** Each open question and the PR it blocks.
 - **Decisions.** One dated line each: the question, the answer, and who decided (the user or
@@ -131,8 +133,11 @@ End every reply to the user with a bold **Your next steps** heading and a number
 they should do now: which PRs to review or merge and in what order, and which questions to
 answer. Session news and status go above it.
 
-- Any open PR counts as one to review, even while its screenshots are being taken. List it with
-  a note that screenshots are coming.
+- Only a `ready` PR goes in the list, to review or merge. A draft PR is status, so say it above
+  the list ("P1 is a draft until its screenshots are in").
+- The user merges without telling you. Before listing a PR, check its live state with
+  `gh pr view` or `gh pr list --state all`. Handle one found merged as Follow the PRs describes,
+  and leave it out.
 - List only actions: review, merge, answer, or check. A PR that can't merge yet is status, so
   say it above the list ("P2 isn't ready to merge until the fix lands").
 - When there's nothing to do, leave out the heading and list and end with the line "No next
@@ -141,7 +146,7 @@ answer. Session news and status go above it.
 ```
 **Your next steps**
 
-1. Review P1 (<PR URL>). Screenshots are coming.
+1. Review P1 (<PR URL>).
 2. Answer the question on P3's base.
 3. Merge P2, then P4.
 ```
@@ -312,15 +317,18 @@ the row `merged` and call `unwatch_pull_request`. Retarget each PR stacked on it
 `gh pr edit <n> --base <branch>` onto the branch it merged into, unless GitHub already did, and
 send a fix round if that leaves a conflict. Then start any approved PR that was waiting on it.
 
-When a PR's checks pass, its screenshots are in, and it has no conflicts, mark it `ready` and
-add merging it to the user's next steps, in the recommended merge order (see Status and merge
-order and Ending each reply). Above the list, say that you'll see a merge the next time
-anything wakes you, or when they tell you.
+A PR stays a draft while its thread is building it, in a fix round, or waiting on screenshots.
+When the thread's final report is in, the screenshots pass, the description matches the head,
+the checks pass, and it has no conflicts, run `gh pr ready <n>`, mark the row `ready`, and add
+reviewing and merging it to the user's next steps, in the recommended merge order (see Status
+and merge order and Ending each reply). Above the list, say that you'll see a merge the next
+time anything wakes you, or when they tell you.
 
 **Fix rounds** go to the PR's own thread, which already knows the issue, the diff, and the review
 findings, and works in the PR's worktree. Send with `t3_thread_send` and `mode: "queue"`, so a
 running turn is never interrupted. The send returns a task ID, and its finish wakes this thread
-like the first run. Mark the row `fixing`. While a row is `fixing`, note new wakes for it in the
+like the first run. Mark the row `fixing`, and if the PR was ready, run `gh pr ready <n> --undo`
+in the same turn. While a row is `fixing`, note new wakes for it in the
 ledger and look at them again after the round's report. The message is self-contained:
 
 ```
