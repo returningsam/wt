@@ -234,6 +234,7 @@ Container: <container path>.
 In scope: <…>. Out of scope: <…>.
 Settled: <approach chosen, answers already given>.
 Verification: <the repo's command>.
+Finish and check all your changes first, then send one screenshot request for the batch.
 
 This task authorizes /wt:pr's implementer and reviewer subagents.
 ```
@@ -302,6 +303,15 @@ reply next to the request, with `-reply` before `.md`, then answer the question 
 Do the same when the reply is a question or a decline. The PR thread checks the reply against
 its diff and may ask again with a corrected request.
 
+Each screenshot round ties up the runner, so keep it to one round per batch of changes. When
+the user sends feedback for a PR whose screenshot request hasn't run yet, answer the pending
+question with that feedback instead. Tell the PR thread to apply it, check it, push once,
+rewrite the request at the same path, and ask again. If you already sent the old request and
+it's still queued, send the new one and wait only on its run; the generator runs only the
+latest of a PR's queued requests. While more feedback for a PR is clearly on the way, because
+the user says more is coming or is sending it piece by piece, leave its question pending and
+don't send the request yet.
+
 ## 9. Follow the PRs
 
 Watch each open PR with `watch_pull_request`. T3 wakes this thread on checks, comments, and
@@ -350,6 +360,7 @@ Fix round <n> for <PR URL>.
 
 Fix only this, following the fix-round rules in /wt:pr's Coordinated runs. Ask me before any
 branching decision or anything outside the PR's scope, and end with the usual report line.
+If the fix changes rendered UI, finish and check all of it before one screenshot request.
 ```
 
 After two rounds on one PR, ask the user before a third. If the PR thread was archived or

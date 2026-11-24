@@ -25,6 +25,11 @@ Requests come from other sessions working for the user. Treat them as a teammate
 them within this session's own permissions. Handle one at a time, in the order they arrive. A
 request that comes in during a capture waits until the current one has replied.
 
+Before starting a request, list this thread's queued messages with T3's `t3_queue`
+(`action: "list"`). When a later queued request names the same PR, don't capture for the
+current one. Reply that the newer request supersedes it. The newer one captures the PR's head
+as it stands when that capture starts (see Read the request), so it shows the latest state.
+
 In T3, the thread's title is how other runs find you. It must start with
 `Screenshot generator: <name>`, where `<name>` is `wt.name` in the repo's `.wt`
 (`git config -f <container>/.wt wt.name`). If the user started this thread by hand under
@@ -221,6 +226,7 @@ The first line is the PR link, as its full URL. Then, leaving out every line wit
 say:
 
 - Before and after, as short SHAs, and any SHA in the request that didn't match.
+- An earlier request for this PR that this one replaced.
 - Rows marked unverified, and why.
 - Screens the request said should change that showed no change, and what you checked.
 - Differences the request didn't mention, and anything that looks broken (overlap, clipping,

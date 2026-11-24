@@ -65,7 +65,8 @@ screenshot follow-up. Instead, once the PR is open, write the request to
 naming that path. Its answer gives the path of the generator's reply, or says why there is
 none. Check the reply as the screenshot follow-up describes. If the reply is a question
 from the generator, or the request was wrong, write a corrected request and ask again. If the
-code is wrong, say so in your report.
+code is wrong, say so in your report. If the answer is feedback on the PR instead, apply it and
+check it, push once, rewrite the request at the same path, and ask again.
 
 **Changes to opening the PR.** Before pushing, check `git branch --show-current`. If it's still
 T3's temporary `wt/<8 hex>` name, or doesn't start with `wt/`, rename it to
@@ -99,8 +100,8 @@ merge `origin/<base>` into the branch. Run verification, then publish the commit
 Open the PR does. When what the PR does changed, update its description: read the
 current body with `gh pr view --json body -q .body`, change only the affected bullets, keep the
 `### Screenshots` section and the `Closes`/`Refs` line as they are, and write it back with
-`gh pr edit --body`. If the fix changes rendered UI, send a new screenshot request as above,
-after the description edit. End with the same report line.
+`gh pr edit --body`. If the fix changes rendered UI, send one new screenshot request for the
+whole round as above, after the description edit. End with the same report line.
 
 ## 1. Resolve the issue, then claim it
 
@@ -207,6 +208,9 @@ Run this after the review findings are committed, so the after shots show the fi
 It applies when the diff changes rendered UI: web pages, components, native app screens.
 Backend, CLI, docs, config, and refactors with no rendered difference skip this section and
 the screenshot follow-up, and neither the PR body nor the report mentions screenshots.
+Each round ties up the generator's single runner, so finish and check every current change
+first, with verification and your own look at the diff, then send one request for the batch.
+Never send a request per change.
 
 Each repo has one screenshot generator, a separate session that runs `/wt:shots`. It captures
 on its own worktree and dev servers and adds the Screenshots table to the PR. This run never
@@ -321,7 +325,9 @@ fixing it unasked. Then give the user a short follow-up: the table is on the PR,
 unverified rows, layout problems, or rows the generator couldn't capture.
 
 If the branch gets new commits that change rendered UI later in this session, send a new
-request so the generator redoes the table.
+request so the generator redoes the table. Finish and check the whole batch of changes before
+sending it. Feedback that arrives before a request has run goes into the same batch, so push it
+and send a new request, which replaces the queued one at the generator.
 
 ## Stops
 
