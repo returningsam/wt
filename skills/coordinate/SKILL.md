@@ -23,8 +23,8 @@ yourself.
   that need no branching decision;
 - answering PR threads' questions that the plan, a standing approval, or an earlier decision
   already settles;
-- finding or starting the repo's helper sessions, sending them requests, and asking them to free
-  resources;
+- finding or starting the repo's helper sessions, sending them requests, cancelling your own
+  requests that are still queued there, and asking them to free resources;
 - watching the PRs, retargeting a stacked PR onto the branch its parent merged into, and editing
   a PR's description when its PR thread is gone;
 - marking a PR ready for review with `gh pr ready`, and back to draft with `--undo`;
@@ -74,8 +74,10 @@ decisions log grows.
   batch, always), and the date.
 - **PRs.** One row per planned PR: key (`P1`, `P2`, …), title, issues with their trailer
   (`Closes #12`, `Refs #15`), branch (the PR's `headRefName`), worktree path, base, effort,
-  depends on, status, PR thread link and task ID, PR URL, and fix rounds used. Status is one of
-  `planned`, `approved`, `running`, `asking`, `pr-open`, `fixing`, `ready`, `merged`, `dropped`.
+  depends on, status, PR thread link and task ID, PR URL, fix rounds used, and any open
+  screenshot request (its question's request ID, the generator run, and `held` or `sent`).
+  Status is one of `planned`, `approved`, `running`, `asking`, `pr-open`, `fixing`, `ready`,
+  `merged`, `dropped`.
   On GitHub, `pr-open` and `fixing` PRs are drafts and `ready` PRs are marked ready.
 - **Helper sessions.** Each helper's thread link, and whether its resources are running.
 - **Waiting on the user.** Each open question and the PR it blocks.
@@ -234,6 +236,7 @@ Container: <container path>.
 In scope: <…>. Out of scope: <…>.
 Settled: <approach chosen, answers already given>.
 Verification: <the repo's command>.
+Screenshots: finish and check all your changes, then send one request for the batch.
 
 This task authorizes /wt:pr's implementer and reviewer subagents.
 ```
@@ -302,6 +305,24 @@ reply next to the request, with `-reply` before `.md`, then answer the question 
 Do the same when the reply is a question or a decline. The PR thread checks the reply against
 its diff and may ask again with a corrected request.
 
+Each screenshot round ties up the runner and delays every other PR's requests, so keep to one
+round per batch of changes. When the user sends feedback for a PR whose screenshot question is
+pending, fold it into that round:
+
+- If you already sent the request, cancel it with `t3_queue` `action: "cancel"`, passing the
+  generator's thread and the run the send returned. A cancel that fails means the capture has
+  started. Let it finish, and ignore its reply.
+- Answer the question with `Feedback, no screenshot run:` followed by the feedback. The PR
+  thread applies and checks it, pushes once, rewrites the request at the same path, and asks
+  again. Send that request, and wait only on its run.
+
+Feedback that arrives while a PR thread is still working waits in the ledger for its screenshot
+question. While more feedback for a PR is clearly on the way, because the user says more is
+coming or sends it piece by piece, mark its request `held` and leave the question pending. Add
+it to "Waiting on the user", and say above the next steps that its screenshots wait until the
+user says the feedback is all in. That message, or one that asks for the screenshots, ends the
+hold.
+
 ## 9. Follow the PRs
 
 Watch each open PR with `watch_pull_request`. T3 wakes this thread on checks, comments, and
@@ -348,8 +369,10 @@ Fix round <n> for <PR URL>.
 
 <the failing check's name and the relevant log lines, or the conflicting files>
 
-Fix only this, following the fix-round rules in /wt:pr's Coordinated runs. Ask me before any
-branching decision or anything outside the PR's scope, and end with the usual report line.
+Fix only this, following the fix-round rules in /wt:pr's Coordinated runs. If it changes
+rendered UI, finish and check all your changes, then send one screenshot request for the batch.
+Ask me before any branching decision or anything outside the PR's scope, and end with the usual
+report line.
 ```
 
 After two rounds on one PR, ask the user before a third. If the PR thread was archived or

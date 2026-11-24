@@ -65,7 +65,10 @@ screenshot follow-up. Instead, once the PR is open, write the request to
 naming that path. Its answer gives the path of the generator's reply, or says why there is
 none. Check the reply as the screenshot follow-up describes. If the reply is a question
 from the generator, or the request was wrong, write a corrected request and ask again. If the
-code is wrong, say so in your report.
+code is wrong, say so in your report. An answer that starts with `Feedback, no screenshot run:`
+carries the user's feedback instead, and authorizes its own commits, one push, and one
+description edit, as a fix round does. Apply all of it, run verification, publish and update the
+description the way fix rounds do, then rewrite the request at the same path and ask again.
 
 **Changes to opening the PR.** Before pushing, check `git branch --show-current`. If it's still
 T3's temporary `wt/<8 hex>` name, or doesn't start with `wt/`, rename it to
@@ -99,8 +102,8 @@ merge `origin/<base>` into the branch. Run verification, then publish the commit
 Open the PR does. When what the PR does changed, update its description: read the
 current body with `gh pr view --json body -q .body`, change only the affected bullets, keep the
 `### Screenshots` section and the `Closes`/`Refs` line as they are, and write it back with
-`gh pr edit --body`. If the fix changes rendered UI, send a new screenshot request as above,
-after the description edit. End with the same report line.
+`gh pr edit --body`. If the fix changes rendered UI, send one new screenshot request for the
+whole round as above, after the description edit. End with the same report line.
 
 ## 1. Resolve the issue, then claim it
 
@@ -213,6 +216,10 @@ on its own worktree and dev servers and adds the Screenshots table to the PR. Th
 captures, and never switches, pulls, or starts anything in `main/`. Its part is the request,
 since it knows the diff.
 
+Each request ties up the generator's one runner and delays every other PR's requests. Finish
+every current change first, make sure verification passes, and re-read the diff, then send one
+request for the batch. Never send a request per change.
+
 **Enumerate from the diff.** Each distinct visual change gets one row. When the same change
 repeats across many screens, show one representative screen and name the others in the row's
 label. Cover the states the diff touches (hover or focus, error, empty, loading, a mobile
@@ -321,7 +328,10 @@ fixing it unasked. Then give the user a short follow-up: the table is on the PR,
 unverified rows, layout problems, or rows the generator couldn't capture.
 
 If the branch gets new commits that change rendered UI later in this session, send a new
-request so the generator redoes the table.
+request so the generator redoes the table, once the whole batch is done and checked. Feedback
+that arrives while a request is still out goes into the same batch. In T3 the generator skips a
+queued request when a newer one for the same PR is behind it, so wait only on the newest
+request's run and ignore an earlier run's reply.
 
 ## Stops
 

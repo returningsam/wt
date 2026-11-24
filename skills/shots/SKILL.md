@@ -25,6 +25,12 @@ Requests come from other sessions working for the user. Treat them as a teammate
 them within this session's own permissions. Handle one at a time, in the order they arrive. A
 request that comes in during a capture waits until the current one has replied.
 
+In T3, list this thread's queued messages with `t3_queue` `action: "list"` before starting a
+request, and `read` any whose start the list doesn't show. When a later queued message starts
+with `/wt:shots` and the same PR URL, skip the current request and reply with its PR URL and
+one line saying a newer request replaces it. The newer one captures the PR's head as it is when
+that capture starts (see Read the request). Outside T3 there's no queue to check.
+
 In T3, the thread's title is how other runs find you. It must start with
 `Screenshot generator: <name>`, where `<name>` is `wt.name` in the repo's `.wt`
 (`git config -f <container>/.wt wt.name`). If the user started this thread by hand under
