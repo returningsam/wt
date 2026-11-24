@@ -1,6 +1,6 @@
 ---
 name: implementer-high
-description: Implements the change for a /wt:pr run in its worktree, for a bug whose cause needs tracing, or a feature in one area. Opus at high effort.
+description: Implements the change for a /wt:pr run in its worktree, for a bug whose cause needs tracing, or a feature, including one across several files or areas. Opus at high effort.
 model: opus
 effort: high
 disallowedTools: Agent
