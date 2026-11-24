@@ -183,9 +183,10 @@ controls how hard the PR thread thinks when it restates the issue, picks the imp
 triages review findings. The implementer and reviewers choose their own effort.
 
 - `medium`: docs, copy, config, or a small change whose location is known.
-- `high`: a bug whose cause needs tracing, or a feature in one area. The default.
-- `xhigh`: the cause is unknown after a first look, the change spans subsystems, or it touches
-  auth, migrations, concurrency, a public API, or money.
+- `high`: a bug whose cause needs tracing, or a feature, including one that edits several files
+  or areas. The default.
+- `xhigh`: the cause is unknown after a first look, or the change touches auth, migrations,
+  concurrency, a public API, or money.
 
 Don't pick branch names. T3 names each PR thread's branch from its brief. The base is the
 integration branch CLAUDE.md names, else the default branch.

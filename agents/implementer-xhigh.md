@@ -1,6 +1,6 @@
 ---
 name: implementer-xhigh
-description: Implements the change for a /wt:pr run in its worktree, for a cause still unknown after a first look, a change across subsystems, or any risk flag such as auth, migrations, concurrency, public API changes, or money. Opus at xhigh effort.
+description: Implements the change for a /wt:pr run in its worktree, for a cause still unknown after a first look, or any risk flag such as auth, migrations, concurrency, public API changes, or money. Opus at xhigh effort.
 model: opus
 effort: xhigh
 disallowedTools: Agent

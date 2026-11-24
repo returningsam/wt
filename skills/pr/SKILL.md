@@ -169,8 +169,8 @@ how hard the change is, then pick one:
 | Agent | When |
 |---|---|
 | `wt:implementer-medium` | Docs, copy, config, or a small change whose location is already known |
-| `wt:implementer-high` | A bug whose cause needs tracing, or a feature in one area. The default when unsure |
-| `wt:implementer-xhigh` | The cause is still unknown after a first look, the change spans subsystems, or it touches auth, migrations, concurrency, a public API, or money |
+| `wt:implementer-high` | A bug whose cause needs tracing, or a feature, including one that edits several files or areas. The default when unsure |
+| `wt:implementer-xhigh` | The cause is still unknown after a first look, or the change touches auth, migrations, concurrency, a public API, or money |
 
 Spawn it in the foreground (`run_in_background: false`) and give it the worktree path, the
 restatement, the issue URL and its relevant comments, the base branch, and the repo's
