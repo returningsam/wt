@@ -2,9 +2,9 @@
 # Usage: wt heavy [--fg] [--] <command...>
 #
 # Runs <command> while holding /tmp/heavy-jobs.lock, so heavy jobs from every repo's sessions
-# run one at a time. The command runs under `taskpolicy -b` (efficiency cores, throttled IO)
-# unless --fg keeps normal priority. Prints one line on stderr when it has to wait, naming the
-# holder when /tmp/heavy-jobs.holder knows it, and exits with the command's status.
+# run one at a time. The command runs under `nice -n 10` unless --fg keeps normal priority.
+# Prints one line on stderr when it has to wait, naming the holder when /tmp/heavy-jobs.holder
+# knows it, and exits with the command's status, or 2 on a usage error.
 #
 # The command gets HEAVY_JOBS_LOCKED=1. With HEAVY_JOBS_LOCKED=1 already set, an ancestor holds
 # the lock, so the command runs directly: the lock is per open file, and taking it again
@@ -19,9 +19,11 @@ holder=/tmp/heavy-jobs.holder
 # Inner mode: lockf runs this script again once it holds the lock.
 if [[ -n ${_WT_HEAVY_MARK-} ]]; then
   : >| $_WT_HEAVY_MARK
-  print -r -- "$$ ${_WT_HEAVY_WHO-}" >| $holder 2>/dev/null
+  { print -r -- "$$ ${_WT_HEAVY_WHO-}" >| $holder } 2>/dev/null
   unset _WT_HEAVY_MARK _WT_HEAVY_WHO
   export HEAVY_JOBS_LOCKED=1
+  # Lets Ctrl-C reach the holder cleanup below once the command exits.
+  trap : INT
   "$@"
   st=$?
   { read -r hp _ < $holder } 2>/dev/null && [[ $hp == $$ ]] && rm -f $holder
@@ -46,8 +48,7 @@ done
 [[ ${HEAVY_JOBS_LOCKED-} == 1 ]] && exec "$@"
 
 cmd=("$@")
-tp=${commands[taskpolicy]:-/usr/sbin/taskpolicy}
-[[ -z $fg && -x $tp ]] && cmd=($tp -b "$@")
+[[ -z $fg ]] && (( $+commands[nice] )) && cmd=(nice -n 10 -- "$@")
 
 if [[ -x /usr/bin/lockf ]]; then
   try=(/usr/bin/lockf -k -s -t 0 $lock) block=(/usr/bin/lockf -k $lock)
@@ -71,14 +72,17 @@ describe() {
 
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/wt-heavy.XXXXXX") || die "mktemp failed"
 trap 'rm -rf $tmp' EXIT
+trap 'exit 129' HUP; trap 'exit 130' INT; trap 'exit 143' TERM
 export _WT_HEAVY_MARK=$tmp/started _WT_HEAVY_WHO="$(describe "$@")"
 
 $try $self "${cmd[@]}"
 st=$?
 if (( st == 75 )) && [[ ! -e $_WT_HEAVY_MARK ]]; then
   pid= who=
-  [[ -r $holder ]] && read -r pid who < $holder
-  if [[ -n $pid && -n $who ]] && kill -0 $pid 2>/dev/null; then
+  { read -r pid who < $holder } 2>/dev/null
+  # Requiring a lockf or flock parent skips a stale holder whose pid was reused.
+  if [[ -n $pid && -n $who ]] &&
+     [[ $(ps -o comm= -p "$(ps -o ppid= -p $pid 2>/dev/null)" 2>/dev/null) == *(lockf|flock) ]]; then
     print -u2 -r -- "wt heavy: waiting for $lock, held by $who"
   else
     print -u2 -r -- "wt heavy: waiting for $lock, held by another heavy job"

@@ -66,10 +66,10 @@ export PATH="$HOME/.claude/plugins/marketplaces/wt/bin:$PATH"
   or later.
 - `wt heavy [--fg] [--] <command...>`: runs the command while holding `/tmp/heavy-jobs.lock`,
   so test suites, builds, pushes with a test hook, and screenshot captures from every repo's
-  sessions run one at a time. The command runs under `taskpolicy -b`, on the efficiency cores
-  with throttled IO. `--fg` keeps normal priority, for captures whose frame timing needs the
-  performance cores. When the lock is taken, it prints one line on stderr naming the holder's
-  repo, branch, and command, then waits. It exits with the command's status.
+  sessions run one at a time. The command runs under `nice -n 10`. `--fg` keeps normal
+  priority, for captures whose frame timing needs it. When the lock is taken, it prints one line
+  on stderr, naming the holder's repo, branch, and command when another `wt heavy` holds it, then
+  waits. It exits with the command's status, or 2 on a usage error.
 
   The command gets `HEAVY_JOBS_LOCKED=1`. When that's already set, an ancestor holds the lock,
   so `wt heavy` runs the command directly. A repo's own hook can take the same lock with
