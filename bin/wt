@@ -7,6 +7,7 @@
 #   shots-diff [--noise <dir>] [--crops <file>] [--removed <screen>] <before> <after> <out>
 #                                    PR screenshot rows from before/after PNGs
 #   shots-attach <pr-url> <dir>      upload <dir>/body.md's screenshots and publish it
+#   heavy [--fg] [--] <command...>   run a heavy job one at a time, at low priority
 
 self=$0:A
 usage() { sed -n '2,/^$/s/^# \{0,1\}//p' $self }

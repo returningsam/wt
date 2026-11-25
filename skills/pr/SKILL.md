@@ -19,6 +19,19 @@ that generator's thread when none exists (see Open the PR). Nothing else — no 
 no force-push after the PR exists, no merge, no writes to the original checkout, no other edit
 to the issue.
 
+**Heavy jobs.** Every repo's sessions share one Mac, so run heavy work through `wt heavy --`.
+It waits on `/tmp/heavy-jobs.lock` until the jobs ahead finish, then runs the command at low
+priority. That covers the verification command, any full test, check, lint, or build, and the
+push, whose hook often runs the tests. A targeted run of one or two spec files can skip it.
+Keep any test-worker limit the repo asks for inside the command, as in
+`wt heavy -- env VITEST_MAX_WORKERS=2 yarn test`. Wrap a command with `&&` or `;` whole, as
+`wt heavy -- zsh -c '<command>'`, or only its first part waits. Never wrap a dev server, since
+it would hold the lock until it stops.
+
+The wait can outlast the 10-minute cap on a foreground Bash call, so run these in the
+background and wait for them to finish. If one times out while waiting, run it again through
+`wt heavy`, never without it.
+
 ## Coordinated runs
 
 A task that says "Coordinated run for the <name> coordinator" comes from a `/wt:coordinate`
@@ -67,8 +80,9 @@ none. Check the reply as the screenshot follow-up describes. If the reply is a q
 from the generator, or the request was wrong, write a corrected request and ask again. If the
 code is wrong, say so in your report. An answer that starts with `Feedback, no screenshot run:`
 carries the user's feedback instead, and authorizes its own commits, one push, and one
-description edit, as a fix round does. Apply all of it, run verification, publish and update the
-description the way fix rounds do, then rewrite the request at the same path and ask again.
+description edit, as a fix round does. Apply all of it, run verification through `wt heavy`,
+publish and update the description the way fix rounds do, then rewrite the request at the same
+path and ask again.
 
 **Changes to opening the PR.** Before pushing, check `git branch --show-current`. If it's still
 T3's temporary `wt/<8 hex>` name, or doesn't start with `wt/`, rename it to
@@ -98,12 +112,13 @@ line, and the last line of your final message, is
 a failing check or a conflict. Beyond the one push in the Authorization paragraph, each round
 authorizes its own commits, one push, and one description edit. Do only what the message lists.
 Add new commits and never amend, rebase, or reset. For a conflict, run `git fetch origin` and
-merge `origin/<base>` into the branch. Run verification, then publish the commits the same way
-Open the PR does. When what the PR does changed, update its description: read the
-current body with `gh pr view --json body -q .body`, change only the affected bullets, keep the
-`### Screenshots` section and the `Closes`/`Refs` line as they are, and write it back with
-`gh pr edit --body`. If the fix changes rendered UI, send one new screenshot request for the
-whole round as above, after the description edit. End with the same report line.
+merge `origin/<base>` into the branch. Run verification through `wt heavy`, then publish the
+commits the same way Open the PR does. When what the PR does changed, update its description:
+read the current body with `gh pr view --json body -q .body`, change only the affected
+bullets, keep the `### Screenshots` section and the `Closes`/`Refs` line as they are, and write
+it back with `gh pr edit --body`. If the fix changes rendered UI, send one new screenshot
+request for the whole round as above, after the description edit. End with the same report
+line.
 
 ## 1. Resolve the issue, then claim it
 
@@ -177,13 +192,13 @@ how hard the change is, then pick one:
 
 Spawn it in the foreground (`run_in_background: false`) and give it the worktree path, the
 restatement, the issue URL and its relevant comments, the base branch, and the repo's
-verification command (`yarn validate`, `npm test`, `make check`, …). If those agent types
-aren't available, spawn `general-purpose` with `model: opus` and the agent file's
-instructions, and say so in the report.
+verification command behind `wt heavy --` (`wt heavy -- yarn validate`,
+`wt heavy -- make check`, …). If those agent types aren't available, spawn `general-purpose`
+with `model: opus` and the agent file's instructions, and say so in the report.
 
 When it returns, check its work rather than its summary: `git log <base>..HEAD` shows the
-commit, and verification passes when you run it yourself. If it stopped instead (no real
-defect, the code already does it, the scope grew), relay that and stop the run. If its result
+commit, and verification passes when you run it yourself through `wt heavy`. If it stopped
+instead (no real defect, the code already does it, the scope grew), relay that and stop the run. If its result
 is wrong or incomplete, spawn it again with what's missing, one tier higher if the miss looks
 like the work was harder than you judged. Keep the adjacent problems it noted for the report.
 
@@ -200,8 +215,8 @@ It reads the change, sizes the review to its risk, spawns read-only reviewers, t
 merged findings against the code, and applies the confirmed ones. Keep its list of applied and
 rejected findings for the report.
 
-Re-run verification after the findings land, then add one clean commit for them. Never amend,
-rebase, or reset committed work — the user may have pulled it, and rewritten history breaks
+Re-run verification through `wt heavy` after the findings land, then add one clean commit for
+them. Never amend, rebase, or reset committed work — the user may have pulled it, and rewritten history breaks
 their `git pull`.
 
 ## 5. Screenshots
@@ -244,7 +259,7 @@ Leave the SHAs out, or give them only as a cross-check. The generator reads them
 ## 6. Open the PR
 
 ```bash
-git push origin HEAD:<branch>   # wt/<branch> → origin/<branch>; always name the target
+wt heavy -- git push origin HEAD:<branch>   # wt/<branch> → origin/<branch>; always name the target
 ```
 
 Write the body by the rules below, then run one `gh pr create`:

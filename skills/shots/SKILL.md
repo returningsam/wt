@@ -68,9 +68,9 @@ from `origin/<base>` in the runner folder, with `node_modules` linked to the run
 worktree's. When the repo has none, write one with Playwright in the runner folder that
 follows the rules under Capture.
 
-Run `up.sh` when a request needs the servers and they're down. If another session asks you
-to free memory, run `down.sh` and reply with what you stopped. `up.sh` starts them again on
-the next request.
+Run `up.sh` when a request needs the servers and they're down, as part of the capture (see
+Capture). If another session asks you to free memory, run `down.sh` and reply with what you
+stopped. `up.sh` starts them again on the next request.
 
 ## 3. Read the request
 
@@ -91,7 +91,23 @@ guessing.
 ## 4. Capture
 
 Run `shoot.sh` once for the after state and, unless the cache has them (see Cache the before
-shots by SHA), once for the before state. Check the runner's `HEAD` before and after each run.
+shots by SHA), once for the before state. Check the runner's `HEAD` before and after the whole
+capture.
+
+Run the whole capture under `wt heavy --fg`, which waits until other sessions' test runs and
+pushes finish, so they can't slow the frames, and keeps normal priority for frame timing.
+Write the runs this request needs to `capture.sh` in the runner folder, starting with
+`set -e`, one command per line: `up.sh` when the servers are down, the after run, the before
+run unless the cache has it, and the noise baseline runs for screens new to the cache. Then run
+it in the background and wait for it to finish:
+
+```bash
+wt heavy --fg -- zsh <runner>/capture.sh
+```
+
+The lock goes when the last shot is taken. Diffing, the sheet review and attaching run after
+it, outside the lock. A retake is its own `capture.sh` run. Servers that sit idle between
+requests stay up outside the lock.
 
 Capture each screen at its native size with a device pixel ratio of 1. A simulator's own
 screenshot size is fine as it is. Turn reduced motion on, pause videos at their first frame,

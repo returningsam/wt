@@ -241,6 +241,9 @@ Screenshots: finish and check all your changes, then send one request for the ba
 This task authorizes /wt:pr's implementer and reviewer subagents.
 ```
 
+PR threads and the screenshot generator already queue their test runs, pushes, and captures
+through `wt heavy`, so a brief needs no rule about load.
+
 ## 6. PR threads' questions
 
 A coordinated /wt:pr thread asks instead of deciding anything on the "Ask first" list, and waits

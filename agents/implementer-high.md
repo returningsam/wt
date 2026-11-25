@@ -18,6 +18,12 @@ the worktree first and confirm with `pwd && git status -sb`. Edit nothing outsid
 - Never start a dev server or Storybook. Never push, amend, rebase, or reset.
 - Run the verification command until it passes, then commit on the current branch. Use a
   plain imperative subject saying what changed and where, and no `Co-Authored-By` trailer.
+- Run the verification command, and any other full test, check, or build, through
+  `wt heavy --`, which queues heavy jobs from every session so they run one at a time. Wrap a
+  command with `&&` or `;` whole, as `wt heavy -- zsh -c '<command>'`. A targeted run of one or
+  two spec files can skip it. The wait can outlast a foreground Bash call, so run it in the
+  background and wait for it. If it times out while waiting, run it again through `wt heavy`,
+  never without it.
 
 Stop without committing and report why when no real defect matches the report, when the
 code already does what was asked or contradicts what the issue assumes, when the diff grows
