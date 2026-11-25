@@ -19,6 +19,15 @@ that generator's thread when none exists (see Open the PR). Nothing else — no 
 no force-push after the PR exists, no merge, no writes to the original checkout, no other edit
 to the issue.
 
+**Heavy jobs.** Every repo's sessions share one Mac, so run heavy work through `wt heavy --`.
+It waits on `/tmp/heavy-jobs.lock` until the jobs ahead finish, then runs the command on the
+efficiency cores. That covers the verification command, any full test, check, lint, or build
+run, and the push, whose hook often runs the tests. A targeted run of one or two spec files can
+skip it. Keep any test-worker limit the repo asks for inside the command, as in
+`wt heavy -- env VITEST_MAX_WORKERS=2 yarn test`. Never wrap a dev server, since it would hold
+the lock until it stops. When it prints that it's waiting, let it wait rather than kill it or
+run the command without it. Give the Bash call a long timeout or run it in the background.
+
 ## Coordinated runs
 
 A task that says "Coordinated run for the <name> coordinator" comes from a `/wt:coordinate`
@@ -177,7 +186,8 @@ how hard the change is, then pick one:
 
 Spawn it in the foreground (`run_in_background: false`) and give it the worktree path, the
 restatement, the issue URL and its relevant comments, the base branch, and the repo's
-verification command (`yarn validate`, `npm test`, `make check`, …). If those agent types
+verification command behind `wt heavy --` (`wt heavy -- yarn validate`, `wt heavy -- make check`,
+…). If those agent types
 aren't available, spawn `general-purpose` with `model: opus` and the agent file's
 instructions, and say so in the report.
 
@@ -244,7 +254,7 @@ Leave the SHAs out, or give them only as a cross-check. The generator reads them
 ## 6. Open the PR
 
 ```bash
-git push origin HEAD:<branch>   # wt/<branch> → origin/<branch>; always name the target
+wt heavy -- git push origin HEAD:<branch>   # wt/<branch> → origin/<branch>; always name the target
 ```
 
 Write the body by the rules below, then run one `gh pr create`:

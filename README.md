@@ -64,6 +64,18 @@ export PATH="$HOME/.claude/plugins/marketplaces/wt/bin:$PATH"
 - `wt shots-attach <pr-url> <dir>`: uploads the screenshots `<dir>/body.md` names as PR
   attachments, turns them into `<img>` tags, and makes the file the PR's body. Needs gh 2.99.0
   or later.
+- `wt heavy [--fg] [--] <command...>`: runs the command while holding `/tmp/heavy-jobs.lock`,
+  so test suites, builds, pushes with a test hook, and screenshot captures from every repo's
+  sessions run one at a time. The command runs under `taskpolicy -b`, on the efficiency cores
+  with throttled IO. `--fg` keeps normal priority, for captures whose frame timing needs the
+  performance cores. When the lock is taken, it prints one line on stderr naming the holder's
+  repo, branch, and command, then waits. It exits with the command's status.
+
+  The command gets `HEAVY_JOBS_LOCKED=1`. When that's already set, an ancestor holds the lock,
+  so `wt heavy` runs the command directly. A repo's own hook can take the same lock with
+  `/usr/bin/lockf -k /tmp/heavy-jobs.lock` when `HEAVY_JOBS_LOCKED` isn't set; taking it a
+  second time under a holder deadlocks. Off macOS it uses `flock`, or runs the command without
+  a lock when neither exists.
 
 `wt new` exits 3 when the repo still needs migrating, or when `.wt` is missing. `wt` with no
 arguments lists the commands.

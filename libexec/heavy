@@ -1,0 +1,89 @@
+#!/bin/zsh
+# Usage: wt heavy [--fg] [--] <command...>
+#
+# Runs <command> while holding /tmp/heavy-jobs.lock, so heavy jobs from every repo's sessions
+# run one at a time. The command runs under `taskpolicy -b` (efficiency cores, throttled IO)
+# unless --fg keeps normal priority. Prints one line on stderr when it has to wait, naming the
+# holder when /tmp/heavy-jobs.holder knows it, and exits with the command's status.
+#
+# The command gets HEAVY_JOBS_LOCKED=1. With HEAVY_JOBS_LOCKED=1 already set, an ancestor holds
+# the lock, so the command runs directly: the lock is per open file, and taking it again
+# deadlocks. Uses /usr/bin/lockf -k, else flock, else runs without a lock.
+
+set -uo pipefail
+
+self=$0:A
+lock=/tmp/heavy-jobs.lock
+holder=/tmp/heavy-jobs.holder
+
+# Inner mode: lockf runs this script again once it holds the lock.
+if [[ -n ${_WT_HEAVY_MARK-} ]]; then
+  : >| $_WT_HEAVY_MARK
+  print -r -- "$$ ${_WT_HEAVY_WHO-}" >| $holder 2>/dev/null
+  unset _WT_HEAVY_MARK _WT_HEAVY_WHO
+  export HEAVY_JOBS_LOCKED=1
+  "$@"
+  st=$?
+  { read -r hp _ < $holder } 2>/dev/null && [[ $hp == $$ ]] && rm -f $holder
+  exit $st
+fi
+
+usage() { sed -n '2,/^$/s/^# \{0,1\}//p' $self }
+die() { print -u2 -- "wt heavy: $1"; exit 2; }
+
+fg=
+while (( $# )); do
+  case $1 in
+    --fg) fg=1; shift ;;
+    --) shift; break ;;
+    -h|--help) usage; exit ;;
+    -*) die "unknown option $1" ;;
+    *) break ;;
+  esac
+done
+(( $# )) || die "usage: wt heavy [--fg] [--] <command...>"
+
+[[ ${HEAVY_JOBS_LOCKED-} == 1 ]] && exec "$@"
+
+cmd=("$@")
+tp=${commands[taskpolicy]:-/usr/sbin/taskpolicy}
+[[ -z $fg && -x $tp ]] && cmd=($tp -b "$@")
+
+if [[ -x /usr/bin/lockf ]]; then
+  try=(/usr/bin/lockf -k -s -t 0 $lock) block=(/usr/bin/lockf -k $lock)
+elif (( $+commands[flock] )); then
+  try=(flock -o -n -E 75 $lock) block=(flock -o $lock)
+else
+  exec "${cmd[@]}"
+fi
+
+describe() {
+  local common root repo branch line=${(j: :)${(q+)@}}
+  (( ${#line} > 120 )) && line="${line[1,117]}..."
+  if common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null); then
+    root=${common:h}
+    [[ ${root:t} == main ]] && repo=${root:h:t} || repo=${root:t}
+    branch=$(git branch --show-current 2>/dev/null)
+    line="$repo${branch:+ on $branch}: $line"
+  fi
+  print -r -- $line
+}
+
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/wt-heavy.XXXXXX") || die "mktemp failed"
+trap 'rm -rf $tmp' EXIT
+export _WT_HEAVY_MARK=$tmp/started _WT_HEAVY_WHO="$(describe "$@")"
+
+$try $self "${cmd[@]}"
+st=$?
+if (( st == 75 )) && [[ ! -e $_WT_HEAVY_MARK ]]; then
+  pid= who=
+  [[ -r $holder ]] && read -r pid who < $holder
+  if [[ -n $pid && -n $who ]] && kill -0 $pid 2>/dev/null; then
+    print -u2 -r -- "wt heavy: waiting for $lock, held by $who"
+  else
+    print -u2 -r -- "wt heavy: waiting for $lock, held by another heavy job"
+  fi
+  $block $self "${cmd[@]}"
+  st=$?
+fi
+exit $st
